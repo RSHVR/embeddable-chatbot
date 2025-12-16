@@ -393,6 +393,12 @@
 			height: 75vh;
 			max-height: none;
 		}
+
+		.chat-body {
+			height: auto;
+			flex: 1;
+			min-height: 0;
+		}
 	}
 
 	@media (min-width: 481px) and (max-width: 768px) {
