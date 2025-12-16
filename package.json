@@ -30,7 +30,13 @@
     "!dist/**/*.spec.*"
   ],
   "peerDependencies": {
-    "svelte": "^5.0.0"
+    "svelte": "^5.0.0",
+    "@supabase/supabase-js": "^2.45.0"
+  },
+  "peerDependenciesMeta": {
+    "@supabase/supabase-js": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "^3.0.0",
@@ -42,8 +48,7 @@
     "vite": "^5.0.0"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.32.0",
-    "@supabase/supabase-js": "^2.45.0"
+    "@anthropic-ai/sdk": "^0.32.0"
   },
   "keywords": [
     "svelte",
