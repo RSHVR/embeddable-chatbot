@@ -18,9 +18,11 @@
 	<div class="messages-container" bind:this={messagesContainer}>
 		<div class="messages-list">
 			{#each messages as message}
-				<div class="message {message.sender}">
-					<div class="bubble">{message.text || '...'}</div>
-				</div>
+				{#if !(message.sender === 'bot' && !message.text)}
+					<div class="message {message.sender}">
+						<div class="bubble">{message.text || '...'}</div>
+					</div>
+				{/if}
 			{/each}
 			{#if isLoading && (!messages[messages.length - 1] || messages[messages.length - 1]?.sender !== 'bot' || !messages[messages.length - 1]?.text)}
 				<div class="message bot">
