@@ -13,10 +13,17 @@
 		videoSrc = '/wave-background.mp4',
 		videoPreload = 'metadata', // 'none' | 'metadata' | 'auto'
 		videoPoster = '', // Poster image URL
-		// Popup mode styling props
-		inputBg = 'rgba(0, 0, 0, 0.3)',
+		// Container mode styling props
+		glassContrast = 'light', // 'dark' | 'light'
+		glassRoundness = 24,
+		glassBlur = 8,
+		glassOpacity = 0.3,
+		containerRoundness = 32,
+		// Shared styling props (both modes)
 		inputTextColor = '#ffffff',
-		sendIconColor = '#007AFF'
+		sendIconColor = '#007AFF',
+		// Popup mode only
+		inputBg = 'rgba(0, 0, 0, 0.3)'
 	} = $props();
 
 	// Lazy loading for container video
@@ -137,7 +144,7 @@
 
 {#if mode === 'container'}
 	<div class="chat-container-mode" bind:this={containerRef}>
-		<div class="video-wrapper">
+		<div class="video-wrapper" style:border-radius="{containerRoundness}px">
 			{#if videoVisible}
 				<video
 					class="video-bg"
@@ -165,9 +172,9 @@
 				</div>
 
 				<div class="textbox-dock">
-					<LiquidGlass contrast="light" roundness={24} blur={8} opacity={0.3}>
+					<LiquidGlass contrast={glassContrast} roundness={glassRoundness} blur={glassBlur} opacity={glassOpacity}>
 						<div class="textbox-inner">
-							<ChatInput onSend={handleSend} {placeholder} disabled={isLoading} />
+							<ChatInput onSend={handleSend} {placeholder} disabled={isLoading} textColor={inputTextColor} iconColor={sendIconColor} />
 						</div>
 					</LiquidGlass>
 				</div>
@@ -205,7 +212,6 @@
 		width: 100%;
 		max-width: 600px;
 		min-height: fit-content;
-		border-radius: 32px;
 		overflow: hidden;
 	}
 

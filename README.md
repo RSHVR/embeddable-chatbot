@@ -61,6 +61,13 @@ The core chat component. Can render as a full container or compact popup content
 | `videoSrc` | `string` | `'/wave-background.mp4'` | Video background URL (container mode) |
 | `videoPreload` | `'none' \| 'metadata' \| 'auto'` | `'metadata'` | Video preload strategy for performance |
 | `videoPoster` | `string` | `''` | Poster image URL shown while video loads |
+| `glassContrast` | `'dark' \| 'light'` | `'light'` | LiquidGlass color scheme |
+| `glassRoundness` | `number` | `24` | LiquidGlass border radius in px |
+| `glassBlur` | `number` | `8` | LiquidGlass backdrop blur in px |
+| `glassOpacity` | `number` | `0.3` | LiquidGlass background opacity |
+| `containerRoundness` | `number` | `32` | Container wrapper border radius in px |
+| `inputTextColor` | `string` | `'#ffffff'` | Input text color |
+| `sendIconColor` | `string` | `'#007AFF'` | Send button icon color |
 
 ### `<ChatPopup>`
 
