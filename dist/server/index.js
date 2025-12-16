@@ -60,12 +60,15 @@ export function createChatHandler(options) {
                                 controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk })}\n\n`));
                             }
                         }
-                        // Save after stream completes
+                        // Save after stream completes (must await for Cloudflare Workers)
                         if (sessionId && fullResponse && onSave) {
                             chatHistory.push({ sender: 'bot', text: fullResponse });
-                            onSave(sessionId, chatHistory).catch((err) => {
+                            try {
+                                await onSave(sessionId, chatHistory);
+                            }
+                            catch (err) {
                                 console.error('Failed to save chat:', err);
-                            });
+                            }
                         }
                         controller.enqueue(encoder.encode('data: [DONE]\n\n'));
                         controller.close();
