@@ -22,7 +22,7 @@
 					<div class="bubble">{message.text || '...'}</div>
 				</div>
 			{/each}
-			{#if isLoading && messages[messages.length - 1]?.sender !== 'bot'}
+			{#if isLoading && (!messages[messages.length - 1] || messages[messages.length - 1]?.sender !== 'bot' || !messages[messages.length - 1]?.text)}
 				<div class="message bot">
 					<div class="bubble typing">
 						<span class="dot"></span>
