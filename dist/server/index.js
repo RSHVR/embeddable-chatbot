@@ -1,4 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk';
 const DEFAULT_SYSTEM_PROMPT = `You are a helpful AI assistant. Be friendly, concise, and helpful.
 
 Guidelines:
@@ -9,8 +8,11 @@ Guidelines:
 const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
 export function createChatHandler(options) {
     const { apiKey, systemPrompt = DEFAULT_SYSTEM_PROMPT, model = DEFAULT_MODEL, maxTokens = 1024, onSave } = options;
-    const anthropic = new Anthropic({ apiKey });
     return async (request) => {
+        // Dynamic import for Cloudflare Workers compatibility
+        // See: https://github.com/anthropics/anthropic-sdk-typescript/issues/392
+        const { default: Anthropic } = await import('@anthropic-ai/sdk');
+        const anthropic = new Anthropic({ apiKey });
         try {
             const { message, sessionId, history } = await request.json();
             if (!message || typeof message !== 'string') {

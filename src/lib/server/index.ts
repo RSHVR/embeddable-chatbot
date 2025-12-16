@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import type Anthropic from '@anthropic-ai/sdk';
 
 export interface ChatMessage {
 	sender: 'user' | 'bot';
@@ -32,9 +32,12 @@ export function createChatHandler(options: ChatHandlerOptions) {
 		onSave
 	} = options;
 
-	const anthropic = new Anthropic({ apiKey });
-
 	return async (request: Request): Promise<Response> => {
+		// Dynamic import for Cloudflare Workers compatibility
+		// See: https://github.com/anthropics/anthropic-sdk-typescript/issues/392
+		const { default: Anthropic } = await import('@anthropic-ai/sdk');
+		const anthropic = new Anthropic({ apiKey });
+
 		try {
 			const { message, sessionId, history } = await request.json();
 
