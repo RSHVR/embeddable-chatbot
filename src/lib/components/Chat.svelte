@@ -3,7 +3,7 @@
 	import ChatWidget from './ChatWidget.svelte';
 	import ChatInput from './ChatInput.svelte';
 	import LiquidGlass from './LiquidGlass.svelte';
-	import { loadChat } from '$lib/supabase';
+	import { loadChat } from '../supabase';
 
 	let {
 		mode = 'container',
