@@ -1,5 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { saveChat, type ChatMessage } from '../supabase';
+
+export interface ChatMessage {
+	sender: 'user' | 'bot';
+	text: string;
+}
 
 export interface ChatHandlerOptions {
 	apiKey: string;
@@ -89,10 +93,9 @@ export function createChatHandler(options: ChatHandlerOptions) {
 						}
 
 						// Save after stream completes
-						if (sessionId && fullResponse) {
+						if (sessionId && fullResponse && onSave) {
 							chatHistory.push({ sender: 'bot', text: fullResponse });
-							const saveFn = onSave || saveChat;
-							saveFn(sessionId, chatHistory).catch((err) => {
+							onSave(sessionId, chatHistory).catch((err) => {
 								console.error('Failed to save chat:', err);
 							});
 						}
