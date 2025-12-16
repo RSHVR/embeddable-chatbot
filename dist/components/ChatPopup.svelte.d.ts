@@ -1,0 +1,39 @@
+export default ChatPopup;
+type ChatPopup = {
+    $on?(type: string, callback: (e: any) => void): () => void;
+    $set?(props: Partial<$$ComponentProps>): void;
+};
+declare const ChatPopup: import("svelte").Component<{
+    apiEndpoint?: string;
+    welcomeText?: string;
+    placeholder?: string;
+    headerTitle?: string;
+    position?: string;
+    headerBg?: string;
+    bodyBg?: string;
+    inputBg?: string;
+    inputTextColor?: string;
+    sendIconColor?: string;
+    buttonBg?: string;
+    buttonIconColor?: string;
+    buttonIcon?: any;
+    videoPreload?: string;
+    videoPoster?: string;
+}, {}, "">;
+type $$ComponentProps = {
+    apiEndpoint?: string;
+    welcomeText?: string;
+    placeholder?: string;
+    headerTitle?: string;
+    position?: string;
+    headerBg?: string;
+    bodyBg?: string;
+    inputBg?: string;
+    inputTextColor?: string;
+    sendIconColor?: string;
+    buttonBg?: string;
+    buttonIconColor?: string;
+    buttonIcon?: any;
+    videoPreload?: string;
+    videoPoster?: string;
+};
