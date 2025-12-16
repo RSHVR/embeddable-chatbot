@@ -1,5 +1,12 @@
 <script>
-	let { onSend = () => {}, placeholder = "Type a message...", disabled = false } = $props();
+	let {
+		onSend = () => {},
+		placeholder = "Type a message...",
+		disabled = false,
+		textColor = '#ffffff',
+		iconColor = '#007AFF'
+	} = $props();
+
 	let inputValue = $state('');
 	let inputElement = $state();
 	let wasDisabled = $state(false);
@@ -36,9 +43,11 @@
 		{placeholder}
 		onkeydown={handleKeydown}
 		{disabled}
+		style:color={textColor}
+		style:--placeholder-color={textColor}
 	/>
 	<button type="submit" disabled={!inputValue.trim() || disabled}>
-		<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+		<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={iconColor} stroke-width="2">
 			<path d="M22 2L11 13" stroke-linecap="round" stroke-linejoin="round"/>
 			<path d="M22 2L15 22L11 13L2 9L22 2Z" stroke-linecap="round" stroke-linejoin="round"/>
 		</svg>
@@ -62,12 +71,12 @@
 		outline: none;
 		font-size: 16px;
 		font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
-		color: #ffffff;
 		padding: 0;
 	}
 
 	input::placeholder {
-		color: rgba(255, 255, 255, 0.5);
+		color: var(--placeholder-color, rgba(255, 255, 255, 0.5));
+		opacity: 0.5;
 	}
 
 	button {
@@ -75,8 +84,7 @@
 		height: 36px;
 		border-radius: 50%;
 		border: none;
-		background: #007AFF;
-		color: white;
+		background: transparent;
 		cursor: pointer;
 		display: flex;
 		align-items: center;
@@ -86,12 +94,11 @@
 	}
 
 	button:hover:not(:disabled) {
-		background: #0066DD;
-		transform: scale(1.05);
+		transform: scale(1.1);
 	}
 
 	button:disabled {
-		background: rgba(255, 255, 255, 0.2);
+		opacity: 0.3;
 		cursor: not-allowed;
 	}
 

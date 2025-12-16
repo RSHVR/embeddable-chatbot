@@ -10,7 +10,11 @@
 		apiEndpoint = '/api/chat',
 		welcomeText = "Hi! How can I help you today?",
 		placeholder = 'Type a message...',
-		videoSrc = '/wave-background.mp4'
+		videoSrc = '/wave-background.mp4',
+		// Popup mode styling props
+		inputBg = 'rgba(0, 0, 0, 0.3)',
+		inputTextColor = '#ffffff',
+		sendIconColor = '#007AFF'
 	} = $props();
 
 	const welcomeMessage = {
@@ -138,8 +142,8 @@
 		<div class="popup-chat-body">
 			<ChatWidget {messages} {isLoading} />
 		</div>
-		<div class="popup-input">
-			<ChatInput onSend={handleSend} {placeholder} disabled={isLoading} />
+		<div class="popup-input" style:background={inputBg}>
+			<ChatInput onSend={handleSend} {placeholder} disabled={isLoading} textColor={inputTextColor} iconColor={sendIconColor} />
 		</div>
 	</div>
 {/if}
@@ -229,9 +233,10 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		background: #1a1a1a;
-		border-radius: 16px;
 		overflow: hidden;
+		gap: 16px;
+		padding: 16px;
+		box-sizing: border-box;
 	}
 
 	.popup-chat-body {
@@ -244,8 +249,7 @@
 
 	.popup-input {
 		flex-shrink: 0;
-		border-top: 1px solid rgba(255, 255, 255, 0.1);
-		background: rgba(0, 0, 0, 0.3);
+		border-radius: 9999px;
 	}
 
 	/* Responsive - Container Mode */

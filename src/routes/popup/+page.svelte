@@ -12,7 +12,7 @@
 	</div>
 </div>
 
-<ChatPopup />
+<ChatPopup bodyBg="/wave-background.mp4" />
 
 <style>
 	.demo-page {

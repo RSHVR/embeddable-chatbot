@@ -7,7 +7,7 @@ AI chatbot widget powered by Claude. Features a beautiful liquid glass UI with v
 - **Dual Mode** - Full-page container or floating popup widget
 - **Streaming Responses** - Real-time message streaming from Claude
 - **Liquid Glass UI** - iOS-style glassmorphism effects
-- **Video Background** - Animated wave background in container mode
+- **Video Background** - Animated wave background support in both modes
 - **Persistent Sessions** - Chat history saved to Supabase
 - **Auto-scroll** - Messages scroll to bottom automatically
 - **Typing Indicator** - Animated dots while waiting for response
@@ -71,6 +71,11 @@ Floating chat button with expandable chat window.
 | `placeholder` | `string` | `'Type a message...'` | Input placeholder text |
 | `headerTitle` | `string` | `'Chat'` | Popup window header title |
 | `position` | `'bottom-right' \| 'bottom-left'` | `'bottom-right'` | Button position |
+| `headerBg` | `string` | `'transparent'` | Header background color |
+| `bodyBg` | `string` | `'transparent'` | Body background (color, image URL, or video URL) |
+| `inputBg` | `string` | `'transparent'` | Input area background color |
+| `inputTextColor` | `string` | `'#ffffff'` | Input text color |
+| `sendIconColor` | `string` | `'#007AFF'` | Send icon color |
 
 ### `<ChatWidget>`
 
@@ -90,6 +95,8 @@ Text input with send button. Auto-focuses after sending.
 | `onSend` | `(text: string) => void` | - | Callback when message sent |
 | `placeholder` | `string` | `'Type a message...'` | Placeholder text |
 | `disabled` | `boolean` | `false` | Disable input |
+| `textColor` | `string` | `'#ffffff'` | Input text color |
+| `iconColor` | `string` | `'#007AFF'` | Send icon color |
 
 ### `<LiquidGlass>`
 

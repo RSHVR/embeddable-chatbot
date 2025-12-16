@@ -1,15 +1,43 @@
 <script>
 	import Chat from './Chat.svelte';
+	import LiquidGlass from './LiquidGlass.svelte';
 
 	let {
 		apiEndpoint = '/api/chat',
 		welcomeText = "Hi! How can I help you today?",
 		placeholder = 'Type a message...',
 		headerTitle = 'Chat',
-		position = 'bottom-right'
+		position = 'bottom-right',
+		// Styling props
+		headerBg = 'transparent', // prev: 'rgba(0, 0, 0, 0.3)'
+		bodyBg = 'transparent',
+		inputBg = 'transparent', // prev: 'rgba(0, 0, 0, 0.3)'
+		inputTextColor = '#ffffff',
+		sendIconColor = '#007AFF'
 	} = $props();
 
 	let isOpen = $state(false);
+
+	// Determine if bodyBg is a video
+	let isBodyBgVideo = $derived(
+		bodyBg.endsWith('.mp4') ||
+		bodyBg.endsWith('.webm') ||
+		bodyBg.endsWith('.mov')
+	);
+
+	// Determine if bodyBg is an image/gif URL or a color
+	let isBodyBgImage = $derived(
+		!isBodyBgVideo && (
+			bodyBg.startsWith('http') ||
+			bodyBg.startsWith('/') ||
+			bodyBg.startsWith('url(') ||
+			bodyBg.endsWith('.gif') ||
+			bodyBg.endsWith('.png') ||
+			bodyBg.endsWith('.jpg') ||
+			bodyBg.endsWith('.jpeg') ||
+			bodyBg.endsWith('.webp')
+		)
+	);
 
 	function toggle() {
 		isOpen = !isOpen;
@@ -22,17 +50,33 @@
 
 <div class="chat-popup-wrapper" class:bottom-right={position === 'bottom-right'} class:bottom-left={position === 'bottom-left'}>
 	{#if isOpen}
-		<div class="chat-window">
-			<div class="chat-header">
-				<span class="header-title">{headerTitle}</span>
-				<button class="close-btn" onclick={close} aria-label="Close chat">
-					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
-				</button>
-			</div>
-			<div class="chat-content">
-				<Chat mode="popup" {apiEndpoint} {welcomeText} {placeholder} />
+		<div class="chat-window-container">
+			{#if isBodyBgVideo}
+				<video class="body-bg-video" autoplay muted loop playsinline>
+					<source src={bodyBg} type="video/mp4" />
+				</video>
+			{:else}
+				<div
+					class="body-bg"
+					style:background={isBodyBgImage ? `url(${bodyBg.startsWith('url(') ? bodyBg.slice(4, -1) : bodyBg}) center/cover no-repeat` : bodyBg}
+				></div>
+			{/if}
+			<div class="chat-window">
+				<LiquidGlass contrast="light" roundness={24} blur={12} opacity={0.5}>
+					<div class="chat-window-inner">
+						<div class="chat-header" style:background={headerBg}>
+							<span class="header-title">{headerTitle}</span>
+							<button class="close-btn" onclick={close} aria-label="Close chat">
+								<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+									<path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+							</button>
+						</div>
+						<div class="chat-content">
+							<Chat mode="popup" {apiEndpoint} {welcomeText} {placeholder} {inputBg} {inputTextColor} {sendIconColor} />
+						</div>
+					</div>
+				</LiquidGlass>
 			</div>
 		</div>
 	{/if}
@@ -71,16 +115,51 @@
 		align-items: flex-start;
 	}
 
-	.chat-window {
+	.chat-window-container {
+		position: relative;
 		width: 380px;
-		height: 500px;
-		background: #1a1a1a;
-		border-radius: 16px;
-		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-		display: flex;
-		flex-direction: column;
+		height: 520px;
+		border-radius: 24px;
 		overflow: hidden;
 		animation: slideUp 0.3s ease-out;
+	}
+
+	.body-bg {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		z-index: 0;
+	}
+
+	.body-bg-video {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		z-index: 0;
+	}
+
+	.chat-window {
+		position: relative;
+		z-index: 1;
+		width: 100%;
+		height: 100%;
+	}
+
+	.chat-window :global(.liquid-glass-wrap) {
+		width: 100%;
+		height: 100%;
+	}
+
+	.chat-window-inner {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		width: 100%;
 	}
 
 	@keyframes slideUp {
@@ -99,8 +178,8 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 16px 20px;
-		background: rgba(0, 0, 0, 0.3);
 		border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+		flex-shrink: 0;
 	}
 
 	.header-title {
@@ -111,26 +190,27 @@
 	}
 
 	.close-btn {
-		background: transparent;
+		background: rgba(255, 255, 255, 0.1);
 		border: none;
-		color: rgba(255, 255, 255, 0.6);
+		color: rgba(255, 255, 255, 0.7);
 		cursor: pointer;
-		padding: 4px;
+		padding: 6px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		border-radius: 4px;
+		border-radius: 8px;
 		transition: all 0.2s ease;
 	}
 
 	.close-btn:hover {
 		color: #fff;
-		background: rgba(255, 255, 255, 0.1);
+		background: rgba(255, 255, 255, 0.2);
 	}
 
 	.chat-content {
 		flex: 1;
 		min-height: 0;
+		overflow: hidden;
 	}
 
 	.chat-toggle-btn {
@@ -167,10 +247,10 @@
 			left: 16px;
 		}
 
-		.chat-window {
+		.chat-window-container {
 			width: calc(100vw - 32px);
 			height: calc(100vh - 120px);
-			max-height: 500px;
+			max-height: 520px;
 		}
 
 		.chat-toggle-btn {
