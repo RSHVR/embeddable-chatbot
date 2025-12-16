@@ -274,10 +274,24 @@
 		flex-shrink: 0;
 		position: relative;
 		z-index: 1;
+		outline: none;
+	}
+
+	.textbox-dock:focus,
+	.textbox-dock:focus-within,
+	.textbox-dock:focus-visible {
+		outline: none;
 	}
 
 	.textbox-inner {
 		width: 100%;
+		outline: none;
+	}
+
+	.textbox-inner:focus,
+	.textbox-inner:focus-within,
+	.textbox-inner:focus-visible {
+		outline: none;
 	}
 
 	/* Popup Mode Styles */

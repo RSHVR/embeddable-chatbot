@@ -65,6 +65,12 @@
 		outline: none;
 	}
 
+	.chat-input:focus,
+	.chat-input:focus-within,
+	.chat-input:focus-visible {
+		outline: none;
+	}
+
 	input {
 		flex: 1;
 		background: transparent;
@@ -73,6 +79,12 @@
 		font-size: 16px;
 		font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
 		padding: 0;
+	}
+
+	input:focus,
+	input:focus-visible {
+		outline: none;
+		box-shadow: none;
 	}
 
 	input::placeholder {

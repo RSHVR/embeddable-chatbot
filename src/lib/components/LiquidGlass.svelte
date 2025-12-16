@@ -52,6 +52,13 @@
 		position: relative;
 		border-radius: var(--roundness);
 		overflow: hidden;
+		outline: none;
+	}
+
+	.liquid-glass-wrap:focus,
+	.liquid-glass-wrap:focus-within,
+	.liquid-glass-wrap:focus-visible {
+		outline: none;
 	}
 
 	.glass-content {
@@ -62,6 +69,13 @@
 		border-radius: var(--roundness);
 		backdrop-filter: blur(var(--blur));
 		-webkit-backdrop-filter: blur(var(--blur));
+		outline: none;
+	}
+
+	.glass-content:focus,
+	.glass-content:focus-within,
+	.glass-content:focus-visible {
+		outline: none;
 	}
 
 	.glass-filter {
