@@ -313,8 +313,8 @@
 		flex-direction: column;
 		height: 100%;
 		overflow: hidden;
-		gap: 16px;
-		padding: 16px;
+		gap: 8px;
+		padding: 8px;
 		box-sizing: border-box;
 	}
 
