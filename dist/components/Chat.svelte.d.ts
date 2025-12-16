@@ -21,6 +21,7 @@ declare const Chat: import("svelte").Component<{
     inputTextColor?: string;
     sendIconColor?: string;
     inputBg?: string;
+    inputGlass?: boolean;
 }, {}, "">;
 type $$ComponentProps = {
     mode?: string;
@@ -40,4 +41,5 @@ type $$ComponentProps = {
     inputTextColor?: string;
     sendIconColor?: string;
     inputBg?: string;
+    inputGlass?: boolean;
 };

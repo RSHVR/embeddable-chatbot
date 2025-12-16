@@ -43,7 +43,7 @@
 		min-height: 0;
 		display: flex;
 		flex-direction: column;
-		padding: 24px;
+		padding: 12px;
 		box-sizing: border-box;
 	}
 
@@ -150,7 +150,7 @@
 	/* Responsive */
 	@media (max-width: 480px) {
 		.chat-widget {
-			padding: 16px;
+			padding: 8px;
 		}
 
 		.message {

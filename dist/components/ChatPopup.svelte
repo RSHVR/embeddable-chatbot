@@ -1,50 +1,53 @@
 <script>
-	import Chat from './Chat.svelte';
-	import LiquidGlass from './LiquidGlass.svelte';
+	import Chat from "./Chat.svelte";
+	import LiquidGlass from "./LiquidGlass.svelte";
 
 	let {
-		apiEndpoint = '/api/chat',
-		loadEndpoint = '', // Optional endpoint for loading chat history
+		apiEndpoint = "/api/chat",
+		loadEndpoint = "", // Optional endpoint for loading chat history
 		welcomeText = "Hi! How can I help you today?",
-		placeholder = 'Type a message...',
-		headerTitle = 'Chat',
-		position = 'bottom-right',
+		placeholder = "Type a message...",
+		headerTitle = "Chat",
+		position = "bottom-right",
 		// Styling props
-		headerBg = 'transparent', // prev: 'rgba(0, 0, 0, 0.3)'
-		bodyBg = 'transparent',
-		inputBg = 'transparent', // prev: 'rgba(0, 0, 0, 0.3)'
-		inputTextColor = '#ffffff',
-		sendIconColor = '#007AFF',
+		headerBg = "transparent", // prev: 'rgba(0, 0, 0, 0.3)'
+		bodyBg = "transparent",
+		inputBg = "transparent", // prev: 'rgba(0, 0, 0, 0.3)'
+		inputTextColor = "#ffffff",
+		sendIconColor = "#007AFF",
 		// Button props
-		buttonBg = 'transparent',
-		buttonIconColor = '#ffffff',
+		buttonBg = "transparent",
+		buttonIconColor = "#ffffff",
 		buttonIcon = null, // Custom SVG snippet for closed state
 		// Video performance props
-		videoPreload = 'metadata', // 'none' | 'metadata' | 'auto'
-		videoPoster = '' // Poster image URL for video backgrounds
+		videoPreload = "metadata", // 'none' | 'metadata' | 'auto'
+		videoPoster = "", // Poster image URL for video backgrounds
+		// Glass effect
+		popupGlass = false, // Enable LiquidGlass on popup window
+		popupBgColor = "transparent", // Background color when glass is disabled - set to transparent or "rgba(30, 30, 30, 0.85)"
+		inputGlass = true, // Enable LiquidGlass on input textbox
 	} = $props();
 
 	let isOpen = $state(false);
 
 	// Determine if bodyBg is a video
 	let isBodyBgVideo = $derived(
-		bodyBg.endsWith('.mp4') ||
-		bodyBg.endsWith('.webm') ||
-		bodyBg.endsWith('.mov')
+		bodyBg.endsWith(".mp4") ||
+			bodyBg.endsWith(".webm") ||
+			bodyBg.endsWith(".mov"),
 	);
 
 	// Determine if bodyBg is an image/gif URL or a color
 	let isBodyBgImage = $derived(
-		!isBodyBgVideo && (
-			bodyBg.startsWith('http') ||
-			bodyBg.startsWith('/') ||
-			bodyBg.startsWith('url(') ||
-			bodyBg.endsWith('.gif') ||
-			bodyBg.endsWith('.png') ||
-			bodyBg.endsWith('.jpg') ||
-			bodyBg.endsWith('.jpeg') ||
-			bodyBg.endsWith('.webp')
-		)
+		!isBodyBgVideo &&
+			(bodyBg.startsWith("http") ||
+				bodyBg.startsWith("/") ||
+				bodyBg.startsWith("url(") ||
+				bodyBg.endsWith(".gif") ||
+				bodyBg.endsWith(".png") ||
+				bodyBg.endsWith(".jpg") ||
+				bodyBg.endsWith(".jpeg") ||
+				bodyBg.endsWith(".webp")),
 	);
 
 	function toggle() {
@@ -56,7 +59,11 @@
 	}
 </script>
 
-<div class="chat-popup-wrapper" class:bottom-right={position === 'bottom-right'} class:bottom-left={position === 'bottom-left'}>
+<div
+	class="chat-popup-wrapper"
+	class:bottom-right={position === "bottom-right"}
+	class:bottom-left={position === "bottom-left"}
+>
 	{#if isOpen}
 		<div class="chat-window-container">
 			{#if isBodyBgVideo}
@@ -69,47 +76,157 @@
 					preload={videoPreload}
 					poster={videoPoster || undefined}
 				>
-					{#if bodyBg.endsWith('.mp4')}
-						<source src={bodyBg.replace('.mp4', '.webm')} type="video/webm" />
+					{#if bodyBg.endsWith(".mp4")}
+						<source
+							src={bodyBg.replace(".mp4", ".webm")}
+							type="video/webm"
+						/>
 					{/if}
 					<source src={bodyBg} type="video/mp4" />
 				</video>
 			{:else}
 				<div
 					class="body-bg"
-					style:background={isBodyBgImage ? `url(${bodyBg.startsWith('url(') ? bodyBg.slice(4, -1) : bodyBg}) center/cover no-repeat` : bodyBg}
+					style:background={isBodyBgImage
+						? `url(${bodyBg.startsWith("url(") ? bodyBg.slice(4, -1) : bodyBg}) center/cover no-repeat`
+						: bodyBg}
 				></div>
 			{/if}
 			<div class="chat-window">
-				<LiquidGlass contrast="light" roundness={24} blur={12} opacity={0.5}>
-					<div class="chat-window-inner">
+				{#if popupGlass}
+					<LiquidGlass
+						contrast="light"
+						roundness={24}
+						blur={1.5}
+						opacity={0.3}
+					>
+						<div class="chat-window-inner">
+							<div
+								class="chat-header"
+								style:background={headerBg}
+							>
+								<span class="header-title">{headerTitle}</span>
+								<button
+									class="close-btn"
+									onclick={close}
+									aria-label="Close chat"
+								>
+									<svg
+										width="20"
+										height="20"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<path
+											d="M18 6L6 18M6 6l12 12"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										/>
+									</svg>
+								</button>
+							</div>
+							<div class="chat-content">
+								<Chat
+									mode="popup"
+									{apiEndpoint}
+									{loadEndpoint}
+									{welcomeText}
+									{placeholder}
+									{inputBg}
+									{inputTextColor}
+									{sendIconColor}
+									{inputGlass}
+								/>
+							</div>
+						</div>
+					</LiquidGlass>
+				{:else}
+					<div
+						class="chat-window-inner no-glass"
+						style:background={popupBgColor}
+					>
 						<div class="chat-header" style:background={headerBg}>
 							<span class="header-title">{headerTitle}</span>
-							<button class="close-btn" onclick={close} aria-label="Close chat">
-								<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-									<path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
+							<button
+								class="close-btn"
+								onclick={close}
+								aria-label="Close chat"
+							>
+								<svg
+									width="20"
+									height="20"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<path
+										d="M18 6L6 18M6 6l12 12"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									/>
 								</svg>
 							</button>
 						</div>
 						<div class="chat-content">
-							<Chat mode="popup" {apiEndpoint} {loadEndpoint} {welcomeText} {placeholder} {inputBg} {inputTextColor} {sendIconColor} />
+							<Chat
+								mode="popup"
+								{apiEndpoint}
+								{loadEndpoint}
+								{welcomeText}
+								{placeholder}
+								{inputBg}
+								{inputTextColor}
+								{sendIconColor}
+								{inputGlass}
+							/>
 						</div>
 					</div>
-				</LiquidGlass>
+				{/if}
 			</div>
 		</div>
 	{/if}
 
-	<button class="chat-toggle-btn" onclick={toggle} aria-label={isOpen ? 'Close chat' : 'Open chat'} style:background={buttonBg} style:color={buttonIconColor}>
+	<button
+		class="chat-toggle-btn"
+		onclick={toggle}
+		aria-label={isOpen ? "Close chat" : "Open chat"}
+		style:background={buttonBg}
+		style:color={buttonIconColor}
+	>
 		{#if isOpen}
-			<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
+			<svg
+				width="24"
+				height="24"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+			>
+				<path
+					d="M18 6L6 18M6 6l12 12"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				/>
 			</svg>
 		{:else if buttonIcon}
 			{@render buttonIcon()}
 		{:else}
-			<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/>
+			<svg
+				width="24"
+				height="24"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+			>
+				<path
+					d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				/>
 			</svg>
 		{/if}
 	</button>
@@ -183,6 +300,10 @@
 		width: 100%;
 	}
 
+	.chat-window-inner.no-glass {
+		border-radius: 24px;
+	}
+
 	@keyframes slideUp {
 		from {
 			opacity: 0;
@@ -207,7 +328,8 @@
 		font-size: 16px;
 		font-weight: 600;
 		color: #fff;
-		font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+		font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+			"Segoe UI", sans-serif;
 	}
 
 	.close-btn {

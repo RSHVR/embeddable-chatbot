@@ -20,6 +20,9 @@ declare const ChatPopup: import("svelte").Component<{
     buttonIcon?: any;
     videoPreload?: string;
     videoPoster?: string;
+    popupGlass?: boolean;
+    popupBgColor?: string;
+    inputGlass?: boolean;
 }, {}, "">;
 type $$ComponentProps = {
     apiEndpoint?: string;
@@ -38,4 +41,7 @@ type $$ComponentProps = {
     buttonIcon?: any;
     videoPreload?: string;
     videoPoster?: string;
+    popupGlass?: boolean;
+    popupBgColor?: string;
+    inputGlass?: boolean;
 };
