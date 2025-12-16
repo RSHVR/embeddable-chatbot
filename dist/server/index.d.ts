@@ -1,4 +1,7 @@
-import { type ChatMessage } from '../supabase';
+export interface ChatMessage {
+    sender: 'user' | 'bot';
+    text: string;
+}
 export interface ChatHandlerOptions {
     apiKey: string;
     systemPrompt?: string;
