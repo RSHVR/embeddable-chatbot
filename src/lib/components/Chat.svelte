@@ -389,8 +389,12 @@
 			padding: 20px;
 		}
 
-		.chat-container {
+		.video-wrapper {
 			height: 75vh;
+		}
+
+		.chat-container {
+			height: 100%;
 			max-height: none;
 		}
 
