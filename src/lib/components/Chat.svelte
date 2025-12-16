@@ -1,30 +1,31 @@
 <script>
-	import { onMount } from 'svelte';
-	import ChatWidget from './ChatWidget.svelte';
-	import ChatInput from './ChatInput.svelte';
-	import LiquidGlass from './LiquidGlass.svelte';
+	import { onMount } from "svelte";
+	import ChatWidget from "./ChatWidget.svelte";
+	import ChatInput from "./ChatInput.svelte";
+	import LiquidGlass from "./LiquidGlass.svelte";
 
 	let {
-		mode = 'container',
-		apiEndpoint = '/api/chat',
-		loadEndpoint = '', // Optional endpoint for loading chat history
+		mode = "container",
+		apiEndpoint = "/api/chat",
+		loadEndpoint = "", // Optional endpoint for loading chat history
 		welcomeText = "Hi! How can I help you today?",
-		placeholder = 'Type a message...',
-		videoSrc = '/wave-background.mp4',
-		videoPreload = 'metadata', // 'none' | 'metadata' | 'auto'
-		videoPoster = '', // Poster image URL
+		placeholder = "Type a message...",
+		videoSrc = "/wave-background.mp4",
+		videoPreload = "metadata", // 'none' | 'metadata' | 'auto'
+		videoPoster = "", // Poster image URL
 		// Container mode styling props
-		glassContrast = 'light', // 'dark' | 'light'
+		glassContrast = "light", // 'dark' | 'light'
 		glassRoundness = 24,
 		glassBlur = 8,
 		glassOpacity = 0.3,
 		containerRoundness = 32,
 		chatBodyGlass = false, // Enable LiquidGlass on chat body
 		// Shared styling props (both modes)
-		inputTextColor = '#ffffff',
-		sendIconColor = '#007AFF',
+		inputTextColor = "#ffffff",
+		sendIconColor = "#007AFF",
 		// Popup mode only
-		inputBg = 'rgba(0, 0, 0, 0.3)'
+		inputBg = "rgba(0, 0, 0, 0.3)",
+		inputGlass = false, // Enable LiquidGlass on input (popup mode)
 	} = $props();
 
 	// Lazy loading for container video
@@ -32,20 +33,20 @@
 	let containerRef = $state();
 
 	const welcomeMessage = {
-		sender: 'bot',
-		text: welcomeText
+		sender: "bot",
+		text: welcomeText,
 	};
 
 	let messages = $state([welcomeMessage]);
 	let isLoading = $state(false);
-	let sessionId = $state('');
+	let sessionId = $state("");
 
 	onMount(async () => {
 		// Generate or retrieve session ID
-		let storedSessionId = sessionStorage.getItem('chat_session_id');
+		let storedSessionId = sessionStorage.getItem("chat_session_id");
 		if (!storedSessionId) {
 			storedSessionId = crypto.randomUUID();
-			sessionStorage.setItem('chat_session_id', storedSessionId);
+			sessionStorage.setItem("chat_session_id", storedSessionId);
 		}
 		sessionId = storedSessionId;
 
@@ -53,9 +54,9 @@
 		if (loadEndpoint) {
 			try {
 				const response = await fetch(loadEndpoint, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ sessionId: storedSessionId })
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ sessionId: storedSessionId }),
 				});
 				if (response.ok) {
 					const data = await response.json();
@@ -64,12 +65,12 @@
 					}
 				}
 			} catch (error) {
-				console.error('Error loading chat history:', error);
+				console.error("Error loading chat history:", error);
 			}
 		}
 
 		// Lazy load video when container becomes visible (container mode only)
-		if (mode === 'container' && containerRef) {
+		if (mode === "container" && containerRef) {
 			const observer = new IntersectionObserver(
 				([entry]) => {
 					if (entry.isIntersecting) {
@@ -77,7 +78,7 @@
 						observer.disconnect();
 					}
 				},
-				{ threshold: 0.1 }
+				{ threshold: 0.1 },
 			);
 			observer.observe(containerRef);
 
@@ -87,52 +88,54 @@
 
 	async function handleSend(text) {
 		// Add user message
-		messages = [...messages, { sender: 'user', text }];
+		messages = [...messages, { sender: "user", text }];
 		isLoading = true;
 
 		try {
 			const response = await fetch(apiEndpoint, {
-				method: 'POST',
+				method: "POST",
 				headers: {
-					'Content-Type': 'application/json'
+					"Content-Type": "application/json",
 				},
 				body: JSON.stringify({
 					message: text,
 					sessionId,
-					history: messages.slice(0, -1)
-				})
+					history: messages.slice(0, -1),
+				}),
 			});
 
 			if (!response.ok) {
-				throw new Error('Failed to get response');
+				throw new Error("Failed to get response");
 			}
 
 			const reader = response.body?.getReader();
-			if (!reader) throw new Error('No reader available');
+			if (!reader) throw new Error("No reader available");
 
 			const decoder = new TextDecoder();
-			let botMessage = '';
+			let botMessage = "";
 			let botMessageIndex = messages.length;
 
-			messages = [...messages, { sender: 'bot', text: '' }];
+			messages = [...messages, { sender: "bot", text: "" }];
 
 			while (true) {
 				const { done, value } = await reader.read();
 				if (done) break;
 
 				const chunk = decoder.decode(value);
-				const lines = chunk.split('\n');
+				const lines = chunk.split("\n");
 
 				for (const line of lines) {
-					if (line.startsWith('data: ')) {
+					if (line.startsWith("data: ")) {
 						const data = line.slice(6);
-						if (data === '[DONE]') break;
+						if (data === "[DONE]") break;
 						try {
 							const parsed = JSON.parse(data);
 							if (parsed.text) {
 								botMessage += parsed.text;
 								messages = messages.map((msg, i) =>
-									i === botMessageIndex ? { ...msg, text: botMessage } : msg
+									i === botMessageIndex
+										? { ...msg, text: botMessage }
+										: msg,
 								);
 							}
 						} catch {
@@ -142,13 +145,13 @@
 				}
 			}
 		} catch (error) {
-			console.error('Error sending message:', error);
+			console.error("Error sending message:", error);
 			messages = [
 				...messages,
 				{
-					sender: 'bot',
-					text: "Sorry, I'm having trouble connecting right now. Please try again in a moment!"
-				}
+					sender: "bot",
+					text: "Sorry, I'm having trouble connecting right now. Please try again in a moment!",
+				},
 			];
 		} finally {
 			isLoading = false;
@@ -156,7 +159,7 @@
 	}
 </script>
 
-{#if mode === 'container'}
+{#if mode === "container"}
 	<div class="chat-container-mode" bind:this={containerRef}>
 		<div class="video-wrapper" style:border-radius="{containerRoundness}px">
 			{#if videoVisible}
@@ -169,8 +172,11 @@
 					preload={videoPreload}
 					poster={videoPoster || undefined}
 				>
-					{#if videoSrc.endsWith('.mp4')}
-						<source src={videoSrc.replace('.mp4', '.webm')} type="video/webm" />
+					{#if videoSrc.endsWith(".mp4")}
+						<source
+							src={videoSrc.replace(".mp4", ".webm")}
+							type="video/webm"
+						/>
 					{/if}
 					<source src={videoSrc} type="video/mp4" />
 				</video>
@@ -181,7 +187,12 @@
 			<div class="chat-container">
 				<div class="chat-body">
 					{#if chatBodyGlass}
-						<LiquidGlass contrast={glassContrast} roundness={glassRoundness} blur={glassBlur} opacity={glassOpacity}>
+						<LiquidGlass
+							contrast={glassContrast}
+							roundness={glassRoundness}
+							blur={glassBlur}
+							opacity={glassOpacity}
+						>
 							<div class="chat-body-inner">
 								<ChatWidget {messages} {isLoading} />
 							</div>
@@ -194,9 +205,20 @@
 				</div>
 
 				<div class="textbox-dock">
-					<LiquidGlass contrast={glassContrast} roundness={glassRoundness} blur={glassBlur} opacity={glassOpacity}>
+					<LiquidGlass
+						contrast={glassContrast}
+						roundness={glassRoundness}
+						blur={glassBlur}
+						opacity={glassOpacity}
+					>
 						<div class="textbox-inner">
-							<ChatInput onSend={handleSend} {placeholder} disabled={isLoading} textColor={inputTextColor} iconColor={sendIconColor} />
+							<ChatInput
+								onSend={handleSend}
+								{placeholder}
+								disabled={isLoading}
+								textColor={inputTextColor}
+								iconColor={sendIconColor}
+							/>
 						</div>
 					</LiquidGlass>
 				</div>
@@ -208,9 +230,36 @@
 		<div class="popup-chat-body">
 			<ChatWidget {messages} {isLoading} />
 		</div>
-		<div class="popup-input" style:background={inputBg}>
-			<ChatInput onSend={handleSend} {placeholder} disabled={isLoading} textColor={inputTextColor} iconColor={sendIconColor} />
-		</div>
+		{#if inputGlass}
+			<div class="popup-input-wrapper">
+				<LiquidGlass
+					contrast="light"
+					roundness={25}
+					blur={8}
+					opacity={0.3}
+				>
+					<div class="popup-input">
+						<ChatInput
+							onSend={handleSend}
+							{placeholder}
+							disabled={isLoading}
+							textColor={inputTextColor}
+							iconColor={sendIconColor}
+						/>
+					</div>
+				</LiquidGlass>
+			</div>
+		{:else}
+			<div class="popup-input" style:background={inputBg}>
+				<ChatInput
+					onSend={handleSend}
+					{placeholder}
+					disabled={isLoading}
+					textColor={inputTextColor}
+					iconColor={sendIconColor}
+				/>
+			</div>
+		{/if}
 	</div>
 {/if}
 
@@ -326,8 +375,11 @@
 		overflow: hidden;
 	}
 
-	.popup-input {
+	.popup-input-wrapper {
 		flex-shrink: 0;
+	}
+
+	.popup-input {
 		border-radius: 9999px;
 	}
 
