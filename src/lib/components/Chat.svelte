@@ -8,8 +8,9 @@
 	let {
 		mode = 'container',
 		apiEndpoint = '/api/chat',
-		welcomeText = "Hey! I'm Veer's AI assistant. What brings you here today? Looking to chat about a project, ask about my work, or just say hi?",
-		placeholder = 'Message Veer...'
+		welcomeText = "Hi! How can I help you today?",
+		placeholder = 'Type a message...',
+		videoSrc = '/wave-background.mp4'
 	} = $props();
 
 	const welcomeMessage = {
@@ -112,7 +113,7 @@
 	<div class="chat-container-mode">
 		<div class="video-wrapper">
 			<video class="video-bg" autoplay muted loop playsinline>
-				<source src="/wave-background.mp4" type="video/mp4" />
+				<source src={videoSrc} type="video/mp4" />
 			</video>
 
 			<div class="chat-container">

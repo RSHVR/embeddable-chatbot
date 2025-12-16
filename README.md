@@ -56,8 +56,9 @@ The core chat component. Can render as a full container or compact popup content
 |------|------|---------|-------------|
 | `mode` | `'container' \| 'popup'` | `'container'` | Display mode |
 | `apiEndpoint` | `string` | `'/api/chat'` | Chat API endpoint URL |
-| `welcomeText` | `string` | `"Hey! I'm Veer's AI assistant..."` | Initial bot message |
-| `placeholder` | `string` | `'Message Veer...'` | Input placeholder text |
+| `welcomeText` | `string` | `"Hi! How can I help you today?"` | Initial bot message |
+| `placeholder` | `string` | `'Type a message...'` | Input placeholder text |
+| `videoSrc` | `string` | `'/wave-background.mp4'` | Video background URL (container mode) |
 
 ### `<ChatPopup>`
 
@@ -66,8 +67,9 @@ Floating chat button with expandable chat window.
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `apiEndpoint` | `string` | `'/api/chat'` | Chat API endpoint URL |
-| `welcomeText` | `string` | `"Hey! I'm Veer's AI assistant..."` | Initial bot message |
-| `placeholder` | `string` | `'Message Veer...'` | Input placeholder text |
+| `welcomeText` | `string` | `"Hi! How can I help you today?"` | Initial bot message |
+| `placeholder` | `string` | `'Type a message...'` | Input placeholder text |
+| `headerTitle` | `string` | `'Chat'` | Popup window header title |
 | `position` | `'bottom-right' \| 'bottom-left'` | `'bottom-right'` | Button position |
 
 ### `<ChatWidget>`

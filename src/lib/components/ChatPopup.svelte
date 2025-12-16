@@ -3,8 +3,9 @@
 
 	let {
 		apiEndpoint = '/api/chat',
-		welcomeText = "Hey! I'm Veer's AI assistant. What brings you here today?",
-		placeholder = 'Message Veer...',
+		welcomeText = "Hi! How can I help you today?",
+		placeholder = 'Type a message...',
+		headerTitle = 'Chat',
 		position = 'bottom-right'
 	} = $props();
 
@@ -23,7 +24,7 @@
 	{#if isOpen}
 		<div class="chat-window">
 			<div class="chat-header">
-				<span class="header-title">Chat with Veer</span>
+				<span class="header-title">{headerTitle}</span>
 				<button class="close-btn" onclick={close} aria-label="Close chat">
 					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
