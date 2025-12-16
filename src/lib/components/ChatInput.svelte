@@ -62,6 +62,7 @@
 		padding: 16px 20px;
 		width: 100%;
 		box-sizing: border-box;
+		outline: none;
 	}
 
 	input {
