@@ -13,7 +13,14 @@
 		bodyBg = 'transparent',
 		inputBg = 'transparent', // prev: 'rgba(0, 0, 0, 0.3)'
 		inputTextColor = '#ffffff',
-		sendIconColor = '#007AFF'
+		sendIconColor = '#007AFF',
+		// Button props
+		buttonBg = 'transparent',
+		buttonIconColor = '#ffffff',
+		buttonIcon = null, // Custom SVG snippet for closed state
+		// Video performance props
+		videoPreload = 'metadata', // 'none' | 'metadata' | 'auto'
+		videoPoster = '' // Poster image URL for video backgrounds
 	} = $props();
 
 	let isOpen = $state(false);
@@ -52,7 +59,18 @@
 	{#if isOpen}
 		<div class="chat-window-container">
 			{#if isBodyBgVideo}
-				<video class="body-bg-video" autoplay muted loop playsinline>
+				<video
+					class="body-bg-video"
+					autoplay
+					muted
+					loop
+					playsinline
+					preload={videoPreload}
+					poster={videoPoster || undefined}
+				>
+					{#if bodyBg.endsWith('.mp4')}
+						<source src={bodyBg.replace('.mp4', '.webm')} type="video/webm" />
+					{/if}
 					<source src={bodyBg} type="video/mp4" />
 				</video>
 			{:else}
@@ -81,11 +99,13 @@
 		</div>
 	{/if}
 
-	<button class="chat-toggle-btn" onclick={toggle} aria-label={isOpen ? 'Close chat' : 'Open chat'}>
+	<button class="chat-toggle-btn" onclick={toggle} aria-label={isOpen ? 'Close chat' : 'Open chat'} style:background={buttonBg} style:color={buttonIconColor}>
 		{#if isOpen}
 			<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 				<path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
 			</svg>
+		{:else if buttonIcon}
+			{@render buttonIcon()}
 		{:else}
 			<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 				<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/>
@@ -218,20 +238,18 @@
 		height: 56px;
 		border-radius: 50%;
 		border: none;
-		background: #007AFF;
-		color: white;
 		cursor: pointer;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		box-shadow: 0 4px 16px rgba(0, 122, 255, 0.4);
+		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 		transition: all 0.2s ease;
 	}
 
 	.chat-toggle-btn:hover {
-		background: #0066DD;
+		filter: brightness(0.9);
 		transform: scale(1.05);
-		box-shadow: 0 6px 20px rgba(0, 122, 255, 0.5);
+		box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
 	}
 
 	.chat-toggle-btn:active {

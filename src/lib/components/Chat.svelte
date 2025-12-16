@@ -11,11 +11,17 @@
 		welcomeText = "Hi! How can I help you today?",
 		placeholder = 'Type a message...',
 		videoSrc = '/wave-background.mp4',
+		videoPreload = 'metadata', // 'none' | 'metadata' | 'auto'
+		videoPoster = '', // Poster image URL
 		// Popup mode styling props
 		inputBg = 'rgba(0, 0, 0, 0.3)',
 		inputTextColor = '#ffffff',
 		sendIconColor = '#007AFF'
 	} = $props();
+
+	// Lazy loading for container video
+	let videoVisible = $state(false);
+	let containerRef = $state();
 
 	const welcomeMessage = {
 		sender: 'bot',
@@ -39,6 +45,22 @@
 		const savedMessages = await loadChat(storedSessionId);
 		if (savedMessages && savedMessages.length > 0) {
 			messages = savedMessages;
+		}
+
+		// Lazy load video when container becomes visible (container mode only)
+		if (mode === 'container' && containerRef) {
+			const observer = new IntersectionObserver(
+				([entry]) => {
+					if (entry.isIntersecting) {
+						videoVisible = true;
+						observer.disconnect();
+					}
+				},
+				{ threshold: 0.1 }
+			);
+			observer.observe(containerRef);
+
+			return () => observer.disconnect();
 		}
 	});
 
@@ -114,11 +136,26 @@
 </script>
 
 {#if mode === 'container'}
-	<div class="chat-container-mode">
+	<div class="chat-container-mode" bind:this={containerRef}>
 		<div class="video-wrapper">
-			<video class="video-bg" autoplay muted loop playsinline>
-				<source src={videoSrc} type="video/mp4" />
-			</video>
+			{#if videoVisible}
+				<video
+					class="video-bg"
+					autoplay
+					muted
+					loop
+					playsinline
+					preload={videoPreload}
+					poster={videoPoster || undefined}
+				>
+					{#if videoSrc.endsWith('.mp4')}
+						<source src={videoSrc.replace('.mp4', '.webm')} type="video/webm" />
+					{/if}
+					<source src={videoSrc} type="video/mp4" />
+				</video>
+			{:else if videoPoster}
+				<img class="video-bg" src={videoPoster} alt="" />
+			{/if}
 
 			<div class="chat-container">
 				<div class="chat-body">

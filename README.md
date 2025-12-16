@@ -59,6 +59,8 @@ The core chat component. Can render as a full container or compact popup content
 | `welcomeText` | `string` | `"Hi! How can I help you today?"` | Initial bot message |
 | `placeholder` | `string` | `'Type a message...'` | Input placeholder text |
 | `videoSrc` | `string` | `'/wave-background.mp4'` | Video background URL (container mode) |
+| `videoPreload` | `'none' \| 'metadata' \| 'auto'` | `'metadata'` | Video preload strategy for performance |
+| `videoPoster` | `string` | `''` | Poster image URL shown while video loads |
 
 ### `<ChatPopup>`
 
@@ -76,6 +78,11 @@ Floating chat button with expandable chat window.
 | `inputBg` | `string` | `'transparent'` | Input area background color |
 | `inputTextColor` | `string` | `'#ffffff'` | Input text color |
 | `sendIconColor` | `string` | `'#007AFF'` | Send icon color |
+| `buttonBg` | `string` | `'transparent'` | Toggle button background color |
+| `buttonIconColor` | `string` | `'#ffffff'` | Toggle button icon color |
+| `buttonIcon` | `Snippet` | `null` | Custom SVG snippet for closed state |
+| `videoPreload` | `'none' \| 'metadata' \| 'auto'` | `'metadata'` | Video preload strategy for performance |
+| `videoPoster` | `string` | `''` | Poster image URL shown while video loads |
 
 ### `<ChatWidget>`
 
