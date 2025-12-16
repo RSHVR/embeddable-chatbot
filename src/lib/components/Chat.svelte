@@ -19,6 +19,7 @@
 		glassBlur = 8,
 		glassOpacity = 0.3,
 		containerRoundness = 32,
+		chatBodyGlass = false, // Enable LiquidGlass on chat body
 		// Shared styling props (both modes)
 		inputTextColor = '#ffffff',
 		sendIconColor = '#007AFF',
@@ -166,9 +167,17 @@
 
 			<div class="chat-container">
 				<div class="chat-body">
-					<div class="chat-body-inner">
-						<ChatWidget {messages} {isLoading} />
-					</div>
+					{#if chatBodyGlass}
+						<LiquidGlass contrast={glassContrast} roundness={glassRoundness} blur={glassBlur} opacity={glassOpacity}>
+							<div class="chat-body-inner">
+								<ChatWidget {messages} {isLoading} />
+							</div>
+						</LiquidGlass>
+					{:else}
+						<div class="chat-body-inner">
+							<ChatWidget {messages} {isLoading} />
+						</div>
+					{/if}
 				</div>
 
 				<div class="textbox-dock">

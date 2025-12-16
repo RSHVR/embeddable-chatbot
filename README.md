@@ -66,6 +66,7 @@ The core chat component. Can render as a full container or compact popup content
 | `glassBlur` | `number` | `8` | LiquidGlass backdrop blur in px |
 | `glassOpacity` | `number` | `0.3` | LiquidGlass background opacity |
 | `containerRoundness` | `number` | `32` | Container wrapper border radius in px |
+| `chatBodyGlass` | `boolean` | `false` | Enable LiquidGlass on chat body |
 | `inputTextColor` | `string` | `'#ffffff'` | Input text color |
 | `sendIconColor` | `string` | `'#007AFF'` | Send button icon color |
 
