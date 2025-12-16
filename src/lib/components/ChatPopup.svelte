@@ -4,6 +4,7 @@
 
 	let {
 		apiEndpoint = '/api/chat',
+		loadEndpoint = '', // Optional endpoint for loading chat history
 		welcomeText = "Hi! How can I help you today?",
 		placeholder = 'Type a message...',
 		headerTitle = 'Chat',
@@ -91,7 +92,7 @@
 							</button>
 						</div>
 						<div class="chat-content">
-							<Chat mode="popup" {apiEndpoint} {welcomeText} {placeholder} {inputBg} {inputTextColor} {sendIconColor} />
+							<Chat mode="popup" {apiEndpoint} {loadEndpoint} {welcomeText} {placeholder} {inputBg} {inputTextColor} {sendIconColor} />
 						</div>
 					</div>
 				</LiquidGlass>

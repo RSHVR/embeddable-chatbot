@@ -3,11 +3,11 @@
 	import ChatWidget from './ChatWidget.svelte';
 	import ChatInput from './ChatInput.svelte';
 	import LiquidGlass from './LiquidGlass.svelte';
-	import { loadChat } from '../supabase';
 
 	let {
 		mode = 'container',
 		apiEndpoint = '/api/chat',
+		loadEndpoint = '', // Optional endpoint for loading chat history
 		welcomeText = "Hi! How can I help you today?",
 		placeholder = 'Type a message...',
 		videoSrc = '/wave-background.mp4',
@@ -49,10 +49,23 @@
 		}
 		sessionId = storedSessionId;
 
-		// Load existing chat history from Supabase
-		const savedMessages = await loadChat(storedSessionId);
-		if (savedMessages && savedMessages.length > 0) {
-			messages = savedMessages;
+		// Load existing chat history if loadEndpoint is provided
+		if (loadEndpoint) {
+			try {
+				const response = await fetch(loadEndpoint, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ sessionId: storedSessionId })
+				});
+				if (response.ok) {
+					const data = await response.json();
+					if (data.messages && data.messages.length > 0) {
+						messages = data.messages;
+					}
+				}
+			} catch (error) {
+				console.error('Error loading chat history:', error);
+			}
 		}
 
 		// Lazy load video when container becomes visible (container mode only)

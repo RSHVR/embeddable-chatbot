@@ -5,6 +5,7 @@ type ChatPopup = {
 };
 declare const ChatPopup: import("svelte").Component<{
     apiEndpoint?: string;
+    loadEndpoint?: string;
     welcomeText?: string;
     placeholder?: string;
     headerTitle?: string;
@@ -22,6 +23,7 @@ declare const ChatPopup: import("svelte").Component<{
 }, {}, "">;
 type $$ComponentProps = {
     apiEndpoint?: string;
+    loadEndpoint?: string;
     welcomeText?: string;
     placeholder?: string;
     headerTitle?: string;

@@ -6,6 +6,7 @@ type Chat = {
 declare const Chat: import("svelte").Component<{
     mode?: string;
     apiEndpoint?: string;
+    loadEndpoint?: string;
     welcomeText?: string;
     placeholder?: string;
     videoSrc?: string;
@@ -24,6 +25,7 @@ declare const Chat: import("svelte").Component<{
 type $$ComponentProps = {
     mode?: string;
     apiEndpoint?: string;
+    loadEndpoint?: string;
     welcomeText?: string;
     placeholder?: string;
     videoSrc?: string;
