@@ -328,6 +328,396 @@ npm install embeddable-chatbot @supabase/supabase-js
 
 That's it! Your chatbot now persists conversations across page reloads and sessions.
 
+## Adding RAG (Retrieval-Augmented Generation)
+
+Make your chatbot smarter by giving it knowledge about your website content. RAG retrieves relevant information from your content and injects it into the conversation context.
+
+### How RAG Works
+
+1. **Embed your content** - Convert website content into vector embeddings using Cohere
+2. **Store in pgvector** - Save embeddings in Supabase with vector similarity search
+3. **Query time** - When a user asks a question:
+   - Generate embedding for the question
+   - Find similar content via vector search
+   - Rerank results for relevance
+   - Inject top results into Claude's context
+
+### 1. Enable pgvector Extension
+
+Run in Supabase SQL Editor:
+
+```sql
+-- Enable the vector extension
+CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA extensions;
+```
+
+### 2. Create Embeddings Table
+
+```sql
+-- Table for storing content embeddings
+CREATE TABLE site_embeddings (
+  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  content TEXT NOT NULL,
+  embedding extensions.vector(1536),  -- Cohere embed-v4.0 dimensions
+  page_url TEXT NOT NULL,
+  page_title TEXT,
+  section_heading TEXT,
+  chunk_index INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- HNSW index for fast similarity search
+CREATE INDEX site_embeddings_embedding_idx
+  ON site_embeddings
+  USING hnsw (embedding vector_cosine_ops);
+
+-- Enable Row Level Security
+ALTER TABLE site_embeddings ENABLE ROW LEVEL SECURITY;
+```
+
+### 3. Create Search Function
+
+```sql
+-- RPC function for vector similarity search
+CREATE OR REPLACE FUNCTION match_site_content(
+  query_embedding extensions.vector(1536),
+  match_threshold FLOAT DEFAULT 0.3,
+  match_count INT DEFAULT 10
+)
+RETURNS TABLE (
+  id BIGINT,
+  content TEXT,
+  page_url TEXT,
+  page_title TEXT,
+  section_heading TEXT,
+  similarity FLOAT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    se.id,
+    se.content,
+    se.page_url,
+    se.page_title,
+    se.section_heading,
+    1 - (se.embedding <=> query_embedding) AS similarity
+  FROM site_embeddings se
+  WHERE 1 - (se.embedding <=> query_embedding) > match_threshold
+  ORDER BY se.embedding <=> query_embedding
+  LIMIT match_count;
+END;
+$$;
+```
+
+### 4. Create RAG Module
+
+```typescript
+// src/lib/server/rag.ts
+import { getSupabase } from './supabase';
+
+interface RetrievedContext {
+  content: string;
+  page_url: string;
+  page_title: string;
+  section_heading: string;
+  similarity: number;
+}
+
+interface RankedContext extends RetrievedContext {
+  relevanceScore: number;
+}
+
+export async function retrieveContext(
+  query: string,
+  cohereApiKey: string,
+  matchCount: number = 10,
+  matchThreshold: number = 0.3,
+  topK: number = 5
+): Promise<RankedContext[]> {
+  // Dynamic import for edge runtime compatibility
+  const { CohereClient } = await import('cohere-ai');
+  const cohere = new CohereClient({ token: cohereApiKey });
+
+  // Step 1: Generate query embedding
+  const embeddingResponse = await cohere.v2.embed({
+    texts: [query],
+    model: 'embed-v4.0',
+    inputType: 'search_query',
+    embeddingTypes: ['float']
+  });
+
+  const queryEmbedding = embeddingResponse.embeddings?.float?.[0];
+  if (!queryEmbedding) return [];
+
+  // Step 2: Vector similarity search
+  const { data, error } = await getSupabase().rpc('match_site_content', {
+    query_embedding: queryEmbedding,
+    match_threshold: matchThreshold,
+    match_count: matchCount
+  });
+
+  if (error) {
+    console.error('RAG retrieval error:', error);
+    return [];
+  }
+
+  const contexts = data as RetrievedContext[];
+  if (contexts.length === 0) return [];
+
+  // Step 3: Rerank results for better relevance
+  const rerankResponse = await cohere.v2.rerank({
+    model: 'rerank-v4.0-fast',
+    query: query,
+    documents: contexts.map((ctx) => ctx.content),
+    topN: topK
+  });
+
+  // Step 4: Map reranked results back to contexts
+  const rankedContexts: RankedContext[] = rerankResponse.results.map((result) => ({
+    ...contexts[result.index],
+    relevanceScore: result.relevanceScore
+  }));
+
+  return rankedContexts;
+}
+
+export function formatContextForPrompt(contexts: RankedContext[]): string {
+  if (contexts.length === 0) return '';
+
+  const formatted = contexts
+    .map(
+      (ctx, i) =>
+        `[Source ${i + 1}: ${ctx.page_title}${ctx.section_heading ? ` - ${ctx.section_heading}` : ''}]\n${ctx.content}`
+    )
+    .join('\n\n');
+
+  return `\n<retrieved_context>\nThe following information is relevant to the user's question:\n\n${formatted}\n</retrieved_context>`;
+}
+```
+
+### 5. Update Chat Handler with RAG
+
+```typescript
+// src/routes/api/chat/+server.ts
+import { env } from '$env/dynamic/private';
+import { createChatHandler } from 'embeddable-chatbot/server';
+import { saveChat } from '$lib/server/supabase';
+import { retrieveContext, formatContextForPrompt } from '$lib/server/rag';
+import type { RequestHandler } from './$types';
+
+const BASE_SYSTEM_PROMPT = `You are a helpful AI assistant for [Your Website].
+
+IMPORTANT INSTRUCTIONS:
+- Answer questions based on the retrieved context when available
+- If the context doesn't contain relevant information, say so honestly
+- Be friendly, concise, and accurate
+- Never make up information not in the context`;
+
+export const POST: RequestHandler = async ({ request }) => {
+  if (!env.ANTHROPIC_API_KEY) {
+    return new Response(JSON.stringify({ error: 'Chat not configured' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  // Clone request to read body for RAG while preserving original
+  const clonedRequest = request.clone();
+  let ragContext = '';
+
+  try {
+    const body = await clonedRequest.json();
+    const messages = body.messages || [];
+    const lastUserMessage = messages.filter((m: any) => m.sender === 'user').pop();
+
+    if (lastUserMessage?.text && env.COHERE_API_KEY) {
+      const contexts = await retrieveContext(lastUserMessage.text, env.COHERE_API_KEY);
+      ragContext = formatContextForPrompt(contexts);
+    }
+  } catch (e) {
+    console.error('RAG error:', e);
+  }
+
+  const handler = createChatHandler({
+    apiKey: env.ANTHROPIC_API_KEY,
+    systemPrompt: BASE_SYSTEM_PROMPT + ragContext,
+    onSave: saveChat
+  });
+
+  return handler(request);
+};
+```
+
+### 6. Create Embedding Script
+
+Create a script to embed your website content:
+
+```typescript
+// scripts/embed-site-content.ts
+import { CohereClient } from 'cohere-ai';
+import { createClient } from '@supabase/supabase-js';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
+
+const CHUNK_SIZE = 500;
+const CHUNK_OVERLAP = 100;
+
+interface SiteContent {
+  url: string;
+  title: string;
+  sections: Array<{ heading: string; content: string }>;
+}
+
+// Define your site content here
+const SITE_CONTENT: SiteContent[] = [
+  {
+    url: '/',
+    title: 'Home',
+    sections: [
+      {
+        heading: 'Welcome',
+        content: 'Your homepage content here...'
+      }
+    ]
+  },
+  {
+    url: '/about',
+    title: 'About',
+    sections: [
+      {
+        heading: 'About Us',
+        content: 'Your about page content here...'
+      }
+    ]
+  }
+  // Add more pages...
+];
+
+async function embedSiteContent() {
+  const cohere = new CohereClient({ token: process.env.COHERE_API_KEY! });
+  const supabase = createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SECRET_KEY!
+  );
+
+  // Chunk content
+  const chunks: Array<{
+    content: string;
+    pageUrl: string;
+    pageTitle: string;
+    sectionHeading: string;
+    chunkIndex: number;
+  }> = [];
+
+  for (const page of SITE_CONTENT) {
+    for (const section of page.sections) {
+      const words = section.content.split(/\s+/);
+      let currentChunk: string[] = [];
+      let currentLength = 0;
+      let chunkIndex = 0;
+
+      for (const word of words) {
+        currentChunk.push(word);
+        currentLength += word.length + 1;
+
+        if (currentLength >= CHUNK_SIZE) {
+          chunks.push({
+            content: currentChunk.join(' '),
+            pageUrl: page.url,
+            pageTitle: page.title,
+            sectionHeading: section.heading,
+            chunkIndex: chunkIndex++
+          });
+          const overlapWords = Math.floor(currentChunk.length * (CHUNK_OVERLAP / CHUNK_SIZE));
+          currentChunk = currentChunk.slice(-overlapWords);
+          currentLength = currentChunk.join(' ').length;
+        }
+      }
+
+      if (currentChunk.length > 0) {
+        chunks.push({
+          content: currentChunk.join(' '),
+          pageUrl: page.url,
+          pageTitle: page.title,
+          sectionHeading: section.heading,
+          chunkIndex: chunkIndex
+        });
+      }
+    }
+  }
+
+  console.log(`Created ${chunks.length} chunks`);
+
+  // Generate embeddings (batch size 96)
+  const embeddings: number[][] = [];
+  for (let i = 0; i < chunks.length; i += 96) {
+    const batch = chunks.slice(i, i + 96);
+    const response = await cohere.v2.embed({
+      texts: batch.map((c) => c.content),
+      model: 'embed-v4.0',
+      inputType: 'search_document',
+      embeddingTypes: ['float']
+    });
+    embeddings.push(...(response.embeddings?.float || []));
+    console.log(`Embedded ${Math.min(i + 96, chunks.length)}/${chunks.length}`);
+  }
+
+  // Clear existing and insert new
+  await supabase.from('site_embeddings').delete().neq('id', 0);
+
+  const records = chunks.map((chunk, idx) => ({
+    content: chunk.content,
+    embedding: embeddings[idx],
+    page_url: chunk.pageUrl,
+    page_title: chunk.pageTitle,
+    section_heading: chunk.sectionHeading,
+    chunk_index: chunk.chunkIndex
+  }));
+
+  const { error } = await supabase.from('site_embeddings').insert(records);
+  if (error) throw error;
+
+  console.log(`Inserted ${records.length} embeddings`);
+}
+
+embedSiteContent().catch(console.error);
+```
+
+### 7. Run the Embedding Script
+
+```bash
+# Install dependencies
+npm install cohere-ai dotenv tsx
+
+# Run the script
+npx tsx scripts/embed-site-content.ts
+```
+
+### 8. Add Cohere API Key
+
+Add to your `.env`:
+
+```bash
+COHERE_API_KEY=your-cohere-api-key
+```
+
+For Cloudflare Workers:
+
+```bash
+wrangler secret put COHERE_API_KEY
+```
+
+### RAG Tips
+
+- **Chunk size**: 500 chars works well for most content. Smaller chunks = more precise retrieval, larger = more context
+- **Overlap**: 100 chars helps maintain context across chunk boundaries
+- **Reranking**: Dramatically improves relevance over pure vector search
+- **Top K**: Start with 5 results, adjust based on your content density
+- **Threshold**: 0.3 similarity is a good starting point, lower = more results
+
 ## Components
 
 ### `<Chat>`
