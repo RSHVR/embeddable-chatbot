@@ -10,6 +10,26 @@
 	let inputValue = $state('');
 	let inputElement = $state();
 	let wasDisabled = $state(false);
+	let originalViewport = '';
+
+	function handleFocus() {
+		// Temporarily disable zoom on mobile by modifying viewport meta
+		const viewport = document.querySelector('meta[name="viewport"]');
+		if (viewport) {
+			originalViewport = viewport.getAttribute('content') || '';
+			if (!originalViewport.includes('maximum-scale')) {
+				viewport.setAttribute('content', originalViewport + ', maximum-scale=1');
+			}
+		}
+	}
+
+	function handleBlur() {
+		// Restore original viewport meta
+		const viewport = document.querySelector('meta[name="viewport"]');
+		if (viewport && originalViewport) {
+			viewport.setAttribute('content', originalViewport);
+		}
+	}
 
 	// Re-focus input when loading completes
 	$effect(() => {
@@ -42,6 +62,8 @@
 		bind:value={inputValue}
 		{placeholder}
 		onkeydown={handleKeydown}
+		onfocus={handleFocus}
+		onblur={handleBlur}
 		{disabled}
 		autocomplete="off"
 		autocapitalize="off"
