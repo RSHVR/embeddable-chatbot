@@ -14,7 +14,7 @@
 	// Re-focus input when loading completes
 	$effect(() => {
 		if (wasDisabled && !disabled) {
-			inputElement?.focus();
+			inputElement?.focus({ preventScroll: true });
 		}
 		wasDisabled = disabled;
 	});
