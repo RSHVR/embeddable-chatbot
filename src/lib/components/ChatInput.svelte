@@ -43,6 +43,10 @@
 		{placeholder}
 		onkeydown={handleKeydown}
 		{disabled}
+		autocomplete="off"
+		autocapitalize="off"
+		autocorrect="off"
+		spellcheck="false"
 		style:color={textColor}
 		style:--placeholder-color={textColor}
 	/>
@@ -122,7 +126,7 @@
 		}
 
 		input {
-			font-size: 15px;
+			font-size: 16px; /* Must be >= 16px to prevent iOS zoom on focus */
 		}
 
 		button {
