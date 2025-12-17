@@ -120,6 +120,214 @@ export const POST: RequestHandler = async ({ request }) => {
 };
 ```
 
+## Complete Setup with Supabase
+
+A step-by-step guide to set up the chatbot with Supabase for chat persistence.
+
+### 1. Create Supabase Project
+
+1. Go to [supabase.com](https://supabase.com) and create a new project
+2. Once created, go to **Settings → API** and copy:
+   - **Project URL** (e.g., `https://xxxxx.supabase.co`)
+   - **service_role secret** (not the anon key)
+
+### 2. Create Database Table
+
+Run this SQL in the Supabase SQL Editor (**SQL Editor → New Query**):
+
+```sql
+-- Chats table for storing conversation history
+CREATE TABLE chats (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id TEXT NOT NULL UNIQUE,
+  messages JSONB NOT NULL DEFAULT '[]',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_chats_session_id ON chats(session_id);
+
+-- Enable Row Level Security (blocks public access)
+ALTER TABLE chats ENABLE ROW LEVEL SECURITY;
+```
+
+### 3. Create Supabase Helper
+
+```typescript
+// src/lib/server/supabase.ts
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { env } from '$env/dynamic/private';
+
+let supabaseInstance: SupabaseClient | null = null;
+
+export function getSupabase(): SupabaseClient {
+  if (!supabaseInstance) {
+    supabaseInstance = createClient(env.SUPABASE_URL!, env.SUPABASE_SECRET_KEY!);
+  }
+  return supabaseInstance;
+}
+
+export interface ChatMessage {
+  sender: 'user' | 'bot';
+  text: string;
+}
+
+export async function saveChat(sessionId: string, messages: ChatMessage[]): Promise<void> {
+  const { error } = await getSupabase()
+    .from('chats')
+    .upsert(
+      {
+        session_id: sessionId,
+        messages: messages,
+        updated_at: new Date().toISOString()
+      },
+      { onConflict: 'session_id' }
+    );
+
+  if (error) {
+    console.error('Error saving chat:', error);
+    throw error;
+  }
+}
+
+export async function loadChat(sessionId: string): Promise<ChatMessage[] | null> {
+  const { data, error } = await getSupabase()
+    .from('chats')
+    .select('messages')
+    .eq('session_id', sessionId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null; // No rows found
+    console.error('Error loading chat:', error);
+    return null;
+  }
+  return data?.messages || null;
+}
+```
+
+### 4. Create Chat API Endpoint
+
+```typescript
+// src/routes/api/chat/+server.ts
+import { env } from '$env/dynamic/private';
+import { createChatHandler } from 'embeddable-chatbot/server';
+import { saveChat } from '$lib/server/supabase';
+import type { RequestHandler } from './$types';
+
+const SYSTEM_PROMPT = `You are a helpful AI assistant. Be friendly and concise.`;
+
+export const POST: RequestHandler = async ({ request }) => {
+  if (!env.ANTHROPIC_API_KEY) {
+    return new Response(JSON.stringify({ error: 'Chat not configured' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  const handler = createChatHandler({
+    apiKey: env.ANTHROPIC_API_KEY,
+    systemPrompt: SYSTEM_PROMPT,
+    onSave: saveChat // Automatically saves after each response
+  });
+
+  return handler(request);
+};
+```
+
+### 5. Create Chat Load Endpoint
+
+```typescript
+// src/routes/api/chat/load/+server.ts
+import { json } from '@sveltejs/kit';
+import { loadChat } from '$lib/server/supabase';
+import type { RequestHandler } from './$types';
+
+export const POST: RequestHandler = async ({ request }) => {
+  const { sessionId } = await request.json();
+
+  if (!sessionId) {
+    return json({ messages: null });
+  }
+
+  const messages = await loadChat(sessionId);
+  return json({ messages });
+};
+```
+
+### 6. Add Environment Variables
+
+Create a `.env` file in your project root:
+
+```bash
+# Anthropic API Key
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Supabase (server-side only)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SECRET_KEY=your-service-role-secret-key
+```
+
+For **Cloudflare Workers** deployment, add secrets:
+
+```bash
+wrangler secret put ANTHROPIC_API_KEY
+wrangler secret put SUPABASE_URL
+wrangler secret put SUPABASE_SECRET_KEY
+```
+
+### 7. Add to Your Website
+
+**Container Mode** (full-page chat, e.g., `/contact` page):
+
+```svelte
+<!-- src/routes/contact/+page.svelte -->
+<script>
+  import { Chat } from 'embeddable-chatbot';
+</script>
+
+<Chat
+  mode="container"
+  apiEndpoint="/api/chat"
+  loadEndpoint="/api/chat/load"
+  welcomeText="Hi! How can I help you today?"
+  placeholder="Type a message..."
+  videoSrc="/wave-background.mp4"
+/>
+```
+
+**Popup Mode** (floating widget on all pages):
+
+```svelte
+<!-- src/routes/+layout.svelte -->
+<script>
+  import { ChatPopup } from 'embeddable-chatbot';
+  import { page } from '$app/stores';
+
+  // Hide on contact page if using container mode there
+  $: isContactPage = $page.url.pathname === '/contact';
+</script>
+
+<slot />
+
+{#if !isContactPage}
+  <ChatPopup
+    apiEndpoint="/api/chat"
+    loadEndpoint="/api/chat/load"
+    welcomeText="Hi! How can I help?"
+    bodyBg="/wave-background.mp4"
+  />
+{/if}
+```
+
+### 8. Install Dependencies
+
+```bash
+npm install embeddable-chatbot @supabase/supabase-js
+```
+
+That's it! Your chatbot now persists conversations across page reloads and sessions.
+
 ## Components
 
 ### `<Chat>`
