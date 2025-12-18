@@ -303,4 +303,4 @@ export function createChatHandler(options: ChatHandlerOptions) {
 }
 
 export { DEFAULT_SYSTEM_PROMPT, DEFAULT_MODEL };
-export type { Tool };
+export type { Tool, ToolExecutionResult, ToolExecutor, ChatHandlerOptions };
