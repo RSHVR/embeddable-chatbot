@@ -6,8 +6,29 @@ Guidelines:
 - If you don't know something, be honest about it
 - Ask clarifying questions when needed`;
 const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
+/**
+ * Sleep helper for polling
+ */
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+/**
+ * Extract text content from Claude response
+ */
+function extractTextFromContent(content) {
+    return content
+        .filter((block) => block.type === 'text')
+        .map((block) => block.text)
+        .join('');
+}
+/**
+ * Extract tool use blocks from Claude response
+ */
+function extractToolUses(content) {
+    return content.filter((block) => block.type === 'tool_use');
+}
 export function createChatHandler(options) {
-    const { apiKey, systemPrompt = DEFAULT_SYSTEM_PROMPT, model = DEFAULT_MODEL, maxTokens = 1024, onSave } = options;
+    const { apiKey, systemPrompt = DEFAULT_SYSTEM_PROMPT, model = DEFAULT_MODEL, maxTokens = 1024, tools, onToolExecute, onSave, maxToolRounds = 10, replyCheckInterval = 2000, replyTimeout = 300000 } = options;
     return async (request) => {
         // Dynamic import for Cloudflare Workers compatibility
         // See: https://github.com/anthropics/anthropic-sdk-typescript/issues/392
@@ -36,15 +57,7 @@ export function createChatHandler(options) {
                 role: 'user',
                 content: message
             });
-            // Call Claude with streaming
-            const stream = await anthropic.messages.stream({
-                model,
-                max_tokens: maxTokens,
-                system: systemPrompt,
-                messages
-            });
-            // Track full response for saving
-            let fullResponse = '';
+            // Track chat history for saving
             const chatHistory = history ? [...history] : [];
             chatHistory.push({ sender: 'user', text: message });
             // Create a readable stream for the response
@@ -52,15 +65,104 @@ export function createChatHandler(options) {
             const readable = new ReadableStream({
                 async start(controller) {
                     try {
-                        for await (const event of stream) {
-                            if (event.type === 'content_block_delta' &&
-                                event.delta.type === 'text_delta') {
-                                const chunk = event.delta.text;
-                                fullResponse += chunk;
-                                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk })}\n\n`));
+                        let fullResponse = '';
+                        let toolRound = 0;
+                        // Agentic loop - continue until we get a final response
+                        while (toolRound < maxToolRounds) {
+                            toolRound++;
+                            // Call Claude (with or without tools)
+                            const response = await anthropic.messages.create({
+                                model,
+                                max_tokens: maxTokens,
+                                system: systemPrompt,
+                                messages,
+                                ...(tools && tools.length > 0 ? { tools } : {})
+                            });
+                            // Check if Claude wants to use tools
+                            if (response.stop_reason === 'tool_use' && onToolExecute) {
+                                const toolUses = extractToolUses(response.content);
+                                // Stream any text that came before tool use
+                                const preToolText = extractTextFromContent(response.content);
+                                if (preToolText) {
+                                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: preToolText })}\n\n`));
+                                    fullResponse += preToolText;
+                                }
+                                // Add assistant message with tool use to history
+                                messages.push({
+                                    role: 'assistant',
+                                    content: response.content
+                                });
+                                // Execute each tool and collect results
+                                const toolResults = [];
+                                for (const toolUse of toolUses) {
+                                    const executionResult = await onToolExecute(toolUse.name, toolUse.input, sessionId, toolUse.id);
+                                    // Handle async waiting (e.g., SMS reply)
+                                    if (executionResult.waitForReply && executionResult.checkReply) {
+                                        // Notify frontend we're waiting
+                                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                                            type: 'waiting',
+                                            message: 'Checking with a team member...'
+                                        })}\n\n`));
+                                        // Poll for reply
+                                        const startTime = Date.now();
+                                        let reply = null;
+                                        while (Date.now() - startTime < replyTimeout) {
+                                            reply = await executionResult.checkReply();
+                                            if (reply)
+                                                break;
+                                            await sleep(replyCheckInterval);
+                                        }
+                                        if (reply) {
+                                            toolResults.push({
+                                                type: 'tool_result',
+                                                tool_use_id: toolUse.id,
+                                                content: `Owner replied: ${reply}`
+                                            });
+                                        }
+                                        else {
+                                            // Timeout - no reply received
+                                            toolResults.push({
+                                                type: 'tool_result',
+                                                tool_use_id: toolUse.id,
+                                                content: 'No reply received from owner. Please ask the user to leave their contact information or check back later.',
+                                                is_error: true
+                                            });
+                                        }
+                                    }
+                                    else {
+                                        // Immediate tool result
+                                        toolResults.push({
+                                            type: 'tool_result',
+                                            tool_use_id: toolUse.id,
+                                            content: executionResult.result
+                                        });
+                                    }
+                                }
+                                // Add tool results to messages
+                                messages.push({
+                                    role: 'user',
+                                    content: toolResults
+                                });
+                                // Continue loop to get Claude's response to tool results
+                                continue;
                             }
+                            // No tool use - stream the final response
+                            const finalText = extractTextFromContent(response.content);
+                            if (finalText) {
+                                // Stream in chunks for better UX
+                                const chunkSize = 20;
+                                for (let i = 0; i < finalText.length; i += chunkSize) {
+                                    const chunk = finalText.slice(i, i + chunkSize);
+                                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk })}\n\n`));
+                                    fullResponse += chunk;
+                                    // Small delay for streaming effect
+                                    await sleep(10);
+                                }
+                            }
+                            // Exit the loop - we have a final response
+                            break;
                         }
-                        // Save after stream completes (must await for Cloudflare Workers)
+                        // Save after completion
                         if (sessionId && fullResponse && onSave) {
                             chatHistory.push({ sender: 'bot', text: fullResponse });
                             try {
@@ -75,7 +177,8 @@ export function createChatHandler(options) {
                     }
                     catch (error) {
                         console.error('Stream error:', error);
-                        controller.error(error);
+                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: 'An error occurred' })}\n\n`));
+                        controller.close();
                     }
                 }
             });
