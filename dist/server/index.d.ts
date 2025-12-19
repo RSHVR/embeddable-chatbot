@@ -12,6 +12,8 @@ export interface ToolExecutionResult {
     waitForReply?: boolean;
     /** Callback to check if the reply has arrived */
     checkReply?: () => Promise<string | null>;
+    /** Callback to clear the current reply so we can receive the next one (for multi-turn) */
+    clearReply?: () => Promise<void>;
 }
 /**
  * Tool executor function type

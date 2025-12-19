@@ -39,6 +39,8 @@
 
 	let messages = $state([welcomeMessage]);
 	let isLoading = $state(false);
+	let isWaiting = $state(false);
+	let waitingMessage = $state('');
 	let sessionId = $state("");
 
 	onMount(async () => {
@@ -130,7 +132,15 @@
 						if (data === "[DONE]") break;
 						try {
 							const parsed = JSON.parse(data);
-							if (parsed.text) {
+							if (parsed.type === 'waiting') {
+								isWaiting = true;
+								waitingMessage = parsed.message || 'Checking with a team member...';
+							} else if (parsed.text) {
+								// Clear waiting state when actual text arrives
+								if (isWaiting) {
+									isWaiting = false;
+									waitingMessage = '';
+								}
 								botMessage += parsed.text;
 								messages = messages.map((msg, i) =>
 									i === botMessageIndex
@@ -155,6 +165,8 @@
 			];
 		} finally {
 			isLoading = false;
+			isWaiting = false;
+			waitingMessage = '';
 		}
 	}
 </script>
@@ -194,12 +206,12 @@
 							opacity={glassOpacity}
 						>
 							<div class="chat-body-inner">
-								<ChatWidget {messages} {isLoading} />
+								<ChatWidget {messages} {isLoading} {isWaiting} {waitingMessage} />
 							</div>
 						</LiquidGlass>
 					{:else}
 						<div class="chat-body-inner">
-							<ChatWidget {messages} {isLoading} />
+							<ChatWidget {messages} {isLoading} {isWaiting} {waitingMessage} />
 						</div>
 					{/if}
 				</div>
@@ -228,7 +240,7 @@
 {:else}
 	<div class="chat-popup-mode">
 		<div class="popup-chat-body">
-			<ChatWidget {messages} {isLoading} />
+			<ChatWidget {messages} {isLoading} {isWaiting} {waitingMessage} />
 		</div>
 		{#if inputGlass}
 			<div class="popup-input-wrapper">

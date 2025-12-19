@@ -44,5 +44,6 @@ export declare function createSMSState(options: SMSStateOptions): {
     updateSMSReply: (id: string, reply: string) => Promise<PendingSMS>;
     markSMSTimeout: (sessionId: string) => Promise<void>;
     checkForReply: (sessionId: string) => Promise<PendingSMS | null>;
+    clearCurrentReply: (sessionId: string) => Promise<void>;
 };
 export type SMSState = ReturnType<typeof createSMSState>;

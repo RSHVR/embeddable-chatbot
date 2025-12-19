@@ -6,8 +6,12 @@ type ChatWidget = {
 declare const ChatWidget: import("svelte").Component<{
     messages?: any[];
     isLoading?: boolean;
+    isWaiting?: boolean;
+    waitingMessage?: string;
 }, {}, "">;
 type $$ComponentProps = {
     messages?: any[];
     isLoading?: boolean;
+    isWaiting?: boolean;
+    waitingMessage?: string;
 };

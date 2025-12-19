@@ -15,6 +15,8 @@ export interface ToolExecutionResult {
 	waitForReply?: boolean;
 	/** Callback to check if the reply has arrived */
 	checkReply?: () => Promise<string | null>;
+	/** Callback to clear the current reply so we can receive the next one (for multi-turn) */
+	clearReply?: () => Promise<void>;
 }
 
 /**
@@ -134,6 +136,30 @@ export function createChatHandler(options: ChatHandlerOptions) {
 
 			// Create a readable stream for the response
 			const encoder = new TextEncoder();
+			let controllerClosed = false;
+
+			// Safe enqueue that won't throw if controller is closed
+			const safeEnqueue = (controller: ReadableStreamDefaultController, data: string) => {
+				if (controllerClosed) return false;
+				try {
+					controller.enqueue(encoder.encode(data));
+					return true;
+				} catch {
+					controllerClosed = true;
+					return false;
+				}
+			};
+
+			const safeClose = (controller: ReadableStreamDefaultController) => {
+				if (controllerClosed) return;
+				try {
+					controller.close();
+					controllerClosed = true;
+				} catch {
+					controllerClosed = true;
+				}
+			};
+
 			const readable = new ReadableStream({
 				async start(controller) {
 					try {
@@ -160,9 +186,7 @@ export function createChatHandler(options: ChatHandlerOptions) {
 								// Stream any text that came before tool use
 								const preToolText = extractTextFromContent(response.content);
 								if (preToolText) {
-									controller.enqueue(
-										encoder.encode(`data: ${JSON.stringify({ text: preToolText })}\n\n`)
-									);
+									safeEnqueue(controller, `data: ${JSON.stringify({ text: preToolText })}\n\n`);
 									fullResponse += preToolText;
 								}
 
@@ -186,30 +210,44 @@ export function createChatHandler(options: ChatHandlerOptions) {
 									// Handle async waiting (e.g., SMS reply)
 									if (executionResult.waitForReply && executionResult.checkReply) {
 										// Notify frontend we're waiting
-										controller.enqueue(
-											encoder.encode(
-												`data: ${JSON.stringify({
-													type: 'waiting',
-													message: 'Checking with a team member...'
-												})}\n\n`
-											)
+										safeEnqueue(
+											controller,
+											`data: ${JSON.stringify({
+												type: 'waiting',
+												message: 'Checking with a team member...'
+											})}\n\n`
 										);
 
-										// Poll for reply
+										// Poll for replies until owner says "SEND"
 										const startTime = Date.now();
-										let reply: string | null = null;
+										const ownerInstructions: string[] = [];
+										let finalizeSignal = false;
 
-										while (Date.now() - startTime < replyTimeout) {
-											reply = await executionResult.checkReply();
-											if (reply) break;
-											await sleep(replyCheckInterval);
+										while (Date.now() - startTime < replyTimeout && !finalizeSignal) {
+											const reply = await executionResult.checkReply();
+											if (reply) {
+												// Check if this is the finalize signal
+												if (reply.trim().toUpperCase() === 'SEND') {
+													finalizeSignal = true;
+												} else {
+													ownerInstructions.push(reply);
+													// Clear the reply so we can receive the next one
+													if (executionResult.clearReply) {
+														await executionResult.clearReply();
+													}
+												}
+											}
+											if (!finalizeSignal) {
+												await sleep(replyCheckInterval);
+											}
 										}
 
-										if (reply) {
+										if (ownerInstructions.length > 0) {
+											const instructionsText = ownerInstructions.join('\n---\n');
 											toolResults.push({
 												type: 'tool_result',
 												tool_use_id: toolUse.id,
-												content: `Owner replied: ${reply}`
+												content: `[INTERNAL - DO NOT SHARE WITH VISITOR]\nOwner instructions:\n${instructionsText}\n\n${finalizeSignal ? 'Owner has signaled SEND. ' : ''}Formulate a natural response to the visitor based on these instructions. Do not reveal what the owner said.`
 											});
 										} else {
 											// Timeout - no reply received
@@ -248,9 +286,9 @@ export function createChatHandler(options: ChatHandlerOptions) {
 								const chunkSize = 20;
 								for (let i = 0; i < finalText.length; i += chunkSize) {
 									const chunk = finalText.slice(i, i + chunkSize);
-									controller.enqueue(
-										encoder.encode(`data: ${JSON.stringify({ text: chunk })}\n\n`)
-									);
+									if (!safeEnqueue(controller, `data: ${JSON.stringify({ text: chunk })}\n\n`)) {
+										break; // Stop if controller closed
+									}
 									fullResponse += chunk;
 									// Small delay for streaming effect
 									await sleep(10);
@@ -271,16 +309,15 @@ export function createChatHandler(options: ChatHandlerOptions) {
 							}
 						}
 
-						controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-						controller.close();
+						safeEnqueue(controller, 'data: [DONE]\n\n');
+						safeClose(controller);
 					} catch (error) {
 						console.error('Stream error:', error);
-						controller.enqueue(
-							encoder.encode(
-								`data: ${JSON.stringify({ type: 'error', message: 'An error occurred' })}\n\n`
-							)
+						safeEnqueue(
+							controller,
+							`data: ${JSON.stringify({ type: 'error', message: 'An error occurred' })}\n\n`
 						);
-						controller.close();
+						safeClose(controller);
 					}
 				}
 			});

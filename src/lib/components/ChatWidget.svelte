@@ -1,7 +1,7 @@
 <script>
 	import { tick } from 'svelte';
 
-	let { messages = [], isLoading = false } = $props();
+	let { messages = [], isLoading = false, isWaiting = false, waitingMessage = '' } = $props();
 	let messagesContainer = $state();
 
 	$effect(() => {
@@ -24,12 +24,24 @@
 					</div>
 				{/if}
 			{/each}
-			{#if isLoading && (!messages[messages.length - 1] || messages[messages.length - 1]?.sender !== 'bot' || !messages[messages.length - 1]?.text)}
+			{#if isLoading && !isWaiting && (!messages[messages.length - 1] || messages[messages.length - 1]?.sender !== 'bot' || !messages[messages.length - 1]?.text)}
 				<div class="message bot">
 					<div class="bubble typing">
 						<span class="dot"></span>
 						<span class="dot"></span>
 						<span class="dot"></span>
+					</div>
+				</div>
+			{/if}
+			{#if isWaiting}
+				<div class="message bot">
+					<div class="bubble waiting">
+						<span class="waiting-text">{waitingMessage}</span>
+						<span class="waiting-dots">
+							<span class="dot"></span>
+							<span class="dot"></span>
+							<span class="dot"></span>
+						</span>
 					</div>
 				</div>
 			{/if}
@@ -116,6 +128,23 @@
 		padding: 12px 16px;
 		min-width: 60px;
 		justify-content: center;
+	}
+
+	/* Waiting indicator */
+	.bubble.waiting {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.waiting-text {
+		color: #666;
+		font-style: italic;
+	}
+
+	.waiting-dots {
+		display: flex;
+		gap: 4px;
 	}
 
 	.dot {

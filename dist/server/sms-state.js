@@ -140,12 +140,31 @@ export function createSMSState(options) {
         }
         return data;
     }
+    /**
+     * Clear the current reply so we can receive the next one (for multi-turn conversations)
+     * Sets the record back to pending state so the next SMS can be captured
+     */
+    async function clearCurrentReply(sessionId) {
+        const { error } = await supabase
+            .from('pending_sms')
+            .update({
+            owner_reply: null,
+            replied_at: null,
+            status: 'pending'
+        })
+            .eq('session_id', sessionId)
+            .eq('status', 'replied');
+        if (error) {
+            console.error('Error clearing current reply:', error);
+        }
+    }
     return {
         createPendingSMS,
         getPendingSMS,
         getMostRecentPendingSMS,
         updateSMSReply,
         markSMSTimeout,
-        checkForReply
+        checkForReply,
+        clearCurrentReply
     };
 }
