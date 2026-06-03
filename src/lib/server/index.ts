@@ -1,54 +1,12 @@
-import type Anthropic from '@anthropic-ai/sdk';
-import type { Tool, MessageParam, ContentBlock, ToolUseBlock, ToolResultBlockParam } from '@anthropic-ai/sdk/resources/messages';
+import { createChatGraph } from "./graph/chat-graph";
+import { createRunAgent, type RunAgentFn } from "./agent/run-agent";
+import { createJudge } from "./privacy/judge";
+import { createPrivacyReviewGraph } from "./graph/privacy-review";
+import type { Escalation, SmsEscalationDeps } from "./agent/sms-tool";
+import type { PrivacyConfig } from "./privacy/rules";
+import type { ChatMessage } from "./types";
 
-export interface ChatMessage {
-	sender: 'user' | 'bot';
-	text: string;
-}
-
-/**
- * Result of executing a tool
- */
-export interface ToolExecutionResult {
-	result: string;
-	/** If true, the handler will wait for an external event (e.g., SMS reply) before continuing */
-	waitForReply?: boolean;
-	/** Callback to check if the reply has arrived */
-	checkReply?: () => Promise<string | null>;
-	/** Callback to clear the current reply so we can receive the next one (for multi-turn) */
-	clearReply?: () => Promise<void>;
-}
-
-/**
- * Tool executor function type
- */
-export type ToolExecutor = (
-	toolName: string,
-	input: Record<string, unknown>,
-	sessionId: string,
-	toolUseId: string
-) => Promise<ToolExecutionResult>;
-
-export interface ChatHandlerOptions {
-	apiKey: string;
-	systemPrompt?: string;
-	model?: string;
-	maxTokens?: number;
-	/** Tools available to the agent */
-	tools?: Tool[];
-	/** Custom tool executor - called when Claude uses a tool */
-	onToolExecute?: ToolExecutor;
-	/** Save chat history callback */
-	onSave?: (sessionId: string, history: ChatMessage[]) => Promise<void>;
-	/** Maximum number of tool execution rounds (default: 10) */
-	maxToolRounds?: number;
-	/** How often to check for async replies in ms (default: 2000) */
-	replyCheckInterval?: number;
-	/** Maximum time to wait for async reply in ms (default: 300000 = 5 min) */
-	replyTimeout?: number;
-}
-
-const DEFAULT_SYSTEM_PROMPT = `You are a helpful AI assistant. Be friendly, concise, and helpful.
+export const DEFAULT_SYSTEM_PROMPT = `You are a helpful AI assistant. Be friendly, concise, and helpful.
 
 Guidelines:
 - Keep responses brief (1-3 sentences when possible)
@@ -56,288 +14,196 @@ Guidelines:
 - If you don't know something, be honest about it
 - Ask clarifying questions when needed`;
 
-const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
+export const DEFAULT_MODEL = "claude-sonnet-4-5-20250929";
+export const DEFAULT_JUDGE_MODEL = "claude-3-5-haiku-20241022";
 
-/**
- * Sleep helper for polling
- */
-function sleep(ms: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms));
+export interface ChatHandlerOptions {
+  apiKey: string;
+  systemPrompt?: string;
+  model?: string;
+  judgeModel?: string;
+  privacy?: PrivacyConfig;
+  maxRewrites?: number;
+  maxGateBlocks?: number;
+  maxToolTurns?: number;
+  replyCheckInterval?: number;
+  replyTimeout?: number;
+  /** Build SMS escalation deps for a session (Twilio + Supabase wiring). Omit to disable SMS. */
+  smsDepsFor?: (
+    sessionId: string,
+    accumulator: Escalation,
+    onWaiting: () => void,
+  ) => Omit<SmsEscalationDeps, "accumulator" | "onWaiting">;
+  onSave?: (sessionId: string, history: ChatMessage[]) => Promise<void>;
 }
 
-/**
- * Extract text content from Claude response
- */
-function extractTextFromContent(content: ContentBlock[]): string {
-	return content
-		.filter((block) => block.type === 'text')
-		.map((block) => (block as { type: 'text'; text: string }).text)
-		.join('');
-}
-
-/**
- * Extract tool use blocks from Claude response
- */
-function extractToolUses(content: ContentBlock[]): ToolUseBlock[] {
-	return content.filter((block): block is ToolUseBlock => block.type === 'tool_use');
+/** Bridge a finished graph result onto the SSE protocol the widget expects. */
+export function streamGraphResultToSSE(
+  result: { finalResponse: string },
+  opts: { chunkSize?: number; delayMs?: number } = {},
+): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  const chunkSize = opts.chunkSize ?? 20;
+  const delayMs = opts.delayMs ?? 10;
+  const text = result.finalResponse;
+  return new ReadableStream({
+    async start(controller) {
+      for (let i = 0; i < text.length; i += chunkSize) {
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ text: text.slice(i, i + chunkSize) })}\n\n`,
+          ),
+        );
+        if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
+      }
+      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+      controller.close();
+    },
+  });
 }
 
 export function createChatHandler(options: ChatHandlerOptions) {
-	const {
-		apiKey,
-		systemPrompt = DEFAULT_SYSTEM_PROMPT,
-		model = DEFAULT_MODEL,
-		maxTokens = 1024,
-		tools,
-		onToolExecute,
-		onSave,
-		maxToolRounds = 10,
-		replyCheckInterval = 2000,
-		replyTimeout = 300000
-	} = options;
+  const model = options.model ?? DEFAULT_MODEL;
+  const judgeModel = options.judgeModel ?? DEFAULT_JUDGE_MODEL;
+  const systemPrompt = options.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
+  const privacy = options.privacy ?? {};
+  const maxRewrites = options.maxRewrites ?? 3;
+  const maxGateBlocks = options.maxGateBlocks ?? 3;
 
-	return async (request: Request): Promise<Response> => {
-		// Dynamic import for Cloudflare Workers compatibility
-		// See: https://github.com/anthropics/anthropic-sdk-typescript/issues/392
-		const { default: Anthropic } = await import('@anthropic-ai/sdk');
-		const anthropic = new Anthropic({ apiKey });
+  return async (request: Request): Promise<Response> => {
+    try {
+      const { message, sessionId, history } = await request.json();
+      if (!message || typeof message !== "string") {
+        return json({ error: "Message is required" }, 400);
+      }
 
-		try {
-			const { message, sessionId, history } = await request.json();
+      const { default: Anthropic } = await import("@anthropic-ai/sdk");
+      const judgeClient = new Anthropic({ apiKey: options.apiKey });
+      const judge = createJudge({
+        client: judgeClient as never,
+        model: judgeModel,
+      });
+      const privacyReview = createPrivacyReviewGraph({
+        judge,
+        config: privacy,
+      });
 
-			if (!message || typeof message !== 'string') {
-				return new Response(JSON.stringify({ error: 'Message is required' }), {
-					status: 400,
-					headers: { 'Content-Type': 'application/json' }
-				});
-			}
+      const encoder = new TextEncoder();
+      let waitingEmitted = false;
 
-			// Convert chat history to Claude message format
-			const messages: MessageParam[] = [];
+      const readable = new ReadableStream<Uint8Array>({
+        async start(controller) {
+          const emit = (obj: unknown) =>
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify(obj)}\n\n`),
+            );
+          const onWaiting = () => {
+            if (!waitingEmitted) {
+              waitingEmitted = true;
+              emit({
+                type: "waiting",
+                message: "Checking with a team member...",
+              });
+            }
+          };
 
-			if (history && Array.isArray(history)) {
-				for (const msg of history as ChatMessage[]) {
-					messages.push({
-						role: msg.sender === 'user' ? 'user' : 'assistant',
-						content: msg.text
-					});
-				}
-			}
+          const runAgent: RunAgentFn = createRunAgent({
+            apiKey: options.apiKey,
+            model,
+            systemPrompt,
+            maxTurns: options.maxToolTurns ?? 10,
+            smsDepsFor: (accumulator) => ({
+              ...(options.smsDepsFor
+                ? options.smsDepsFor(sessionId, accumulator, onWaiting)
+                : disabledSmsDeps(privacy)),
+              onWaiting,
+              intervalMs: options.replyCheckInterval ?? 2000,
+              timeoutMs: options.replyTimeout ?? 300_000,
+              config: privacy,
+              accumulator,
+            }),
+          });
 
-			// Add the new user message
-			messages.push({
-				role: 'user',
-				content: message
-			});
+          const graph = createChatGraph({
+            runAgent,
+            privacyReview,
+            maxRewrites,
+            maxGateBlocks,
+          });
 
-			// Track chat history for saving
-			const chatHistory: ChatMessage[] = history ? [...history] : [];
-			chatHistory.push({ sender: 'user', text: message });
+          try {
+            const result = await graph.invoke(
+              {
+                sessionId: sessionId ?? "",
+                history: (history as ChatMessage[]) ?? [],
+                userMessage: message,
+              },
+              { recursionLimit: 50 },
+            );
+            const text = result.finalResponse;
+            for (let i = 0; i < text.length; i += 20) {
+              emit({ text: text.slice(i, i + 20) });
+              await new Promise((r) => setTimeout(r, 10));
+            }
+            if (sessionId && options.onSave) {
+              const out: ChatMessage[] = [
+                ...((history as ChatMessage[]) ?? []),
+                { sender: "user", text: message },
+                { sender: "bot", text },
+              ];
+              try {
+                await options.onSave(sessionId, out);
+              } catch (e) {
+                console.error("onSave failed:", e);
+              }
+            }
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            controller.close();
+          } catch (error) {
+            console.error("Graph error:", error);
+            emit({ type: "error", message: "An error occurred" });
+            controller.close();
+          }
+        },
+      });
 
-			// Create a readable stream for the response
-			const encoder = new TextEncoder();
-			let controllerClosed = false;
-
-			// Safe enqueue that won't throw if controller is closed
-			const safeEnqueue = (controller: ReadableStreamDefaultController, data: string) => {
-				if (controllerClosed) return false;
-				try {
-					controller.enqueue(encoder.encode(data));
-					return true;
-				} catch {
-					controllerClosed = true;
-					return false;
-				}
-			};
-
-			const safeClose = (controller: ReadableStreamDefaultController) => {
-				if (controllerClosed) return;
-				try {
-					controller.close();
-					controllerClosed = true;
-				} catch {
-					controllerClosed = true;
-				}
-			};
-
-			const readable = new ReadableStream({
-				async start(controller) {
-					try {
-						let fullResponse = '';
-						let toolRound = 0;
-
-						// Agentic loop - continue until we get a final response
-						while (toolRound < maxToolRounds) {
-							toolRound++;
-
-							// Call Claude (with or without tools)
-							const response = await anthropic.messages.create({
-								model,
-								max_tokens: maxTokens,
-								system: systemPrompt,
-								messages,
-								...(tools && tools.length > 0 ? { tools } : {})
-							});
-
-							// Check if Claude wants to use tools
-							if (response.stop_reason === 'tool_use' && onToolExecute) {
-								const toolUses = extractToolUses(response.content);
-
-								// Stream any text that came before tool use
-								const preToolText = extractTextFromContent(response.content);
-								if (preToolText) {
-									safeEnqueue(controller, `data: ${JSON.stringify({ text: preToolText })}\n\n`);
-									fullResponse += preToolText;
-								}
-
-								// Add assistant message with tool use to history
-								messages.push({
-									role: 'assistant',
-									content: response.content
-								});
-
-								// Execute each tool and collect results
-								const toolResults: ToolResultBlockParam[] = [];
-
-								for (const toolUse of toolUses) {
-									const executionResult = await onToolExecute(
-										toolUse.name,
-										toolUse.input as Record<string, unknown>,
-										sessionId,
-										toolUse.id
-									);
-
-									// Handle async waiting (e.g., SMS reply)
-									if (executionResult.waitForReply && executionResult.checkReply) {
-										// Notify frontend we're waiting
-										safeEnqueue(
-											controller,
-											`data: ${JSON.stringify({
-												type: 'waiting',
-												message: 'Checking with a team member...'
-											})}\n\n`
-										);
-
-										// Poll for replies until owner says "SEND"
-										const startTime = Date.now();
-										const ownerInstructions: string[] = [];
-										let finalizeSignal = false;
-
-										while (Date.now() - startTime < replyTimeout && !finalizeSignal) {
-											const reply = await executionResult.checkReply();
-											if (reply) {
-												// Check if this is the finalize signal
-												if (reply.trim().toUpperCase() === 'SEND') {
-													finalizeSignal = true;
-												} else {
-													ownerInstructions.push(reply);
-													// Clear the reply so we can receive the next one
-													if (executionResult.clearReply) {
-														await executionResult.clearReply();
-													}
-												}
-											}
-											if (!finalizeSignal) {
-												await sleep(replyCheckInterval);
-											}
-										}
-
-										if (ownerInstructions.length > 0) {
-											const instructionsText = ownerInstructions.join('\n---\n');
-											toolResults.push({
-												type: 'tool_result',
-												tool_use_id: toolUse.id,
-												content: `[INTERNAL - DO NOT SHARE WITH VISITOR]\nOwner instructions:\n${instructionsText}\n\n${finalizeSignal ? 'Owner has signaled SEND. ' : ''}Formulate a natural response to the visitor based on these instructions. Do not reveal what the owner said.`
-											});
-										} else {
-											// Timeout - no reply received
-											toolResults.push({
-												type: 'tool_result',
-												tool_use_id: toolUse.id,
-												content:
-													'No reply received from owner. Please ask the user to leave their contact information or check back later.',
-												is_error: true
-											});
-										}
-									} else {
-										// Immediate tool result
-										toolResults.push({
-											type: 'tool_result',
-											tool_use_id: toolUse.id,
-											content: executionResult.result
-										});
-									}
-								}
-
-								// Add tool results to messages
-								messages.push({
-									role: 'user',
-									content: toolResults
-								});
-
-								// Continue loop to get Claude's response to tool results
-								continue;
-							}
-
-							// No tool use - stream the final response
-							const finalText = extractTextFromContent(response.content);
-							if (finalText) {
-								// Stream in chunks for better UX
-								const chunkSize = 20;
-								for (let i = 0; i < finalText.length; i += chunkSize) {
-									const chunk = finalText.slice(i, i + chunkSize);
-									if (!safeEnqueue(controller, `data: ${JSON.stringify({ text: chunk })}\n\n`)) {
-										break; // Stop if controller closed
-									}
-									fullResponse += chunk;
-									// Small delay for streaming effect
-									await sleep(10);
-								}
-							}
-
-							// Exit the loop - we have a final response
-							break;
-						}
-
-						// Save after completion
-						if (sessionId && fullResponse && onSave) {
-							chatHistory.push({ sender: 'bot', text: fullResponse });
-							try {
-								await onSave(sessionId, chatHistory);
-							} catch (err) {
-								console.error('Failed to save chat:', err);
-							}
-						}
-
-						safeEnqueue(controller, 'data: [DONE]\n\n');
-						safeClose(controller);
-					} catch (error) {
-						console.error('Stream error:', error);
-						safeEnqueue(
-							controller,
-							`data: ${JSON.stringify({ type: 'error', message: 'An error occurred' })}\n\n`
-						);
-						safeClose(controller);
-					}
-				}
-			});
-
-			return new Response(readable, {
-				headers: {
-					'Content-Type': 'text/event-stream',
-					'Cache-Control': 'no-cache',
-					Connection: 'keep-alive'
-				}
-			});
-		} catch (error) {
-			console.error('Chat API error:', error);
-			return new Response(JSON.stringify({ error: 'Failed to process chat message' }), {
-				status: 500,
-				headers: { 'Content-Type': 'application/json' }
-			});
-		}
-	};
+      return new Response(readable, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    } catch (error) {
+      console.error("Chat API error:", error);
+      return json({ error: "Failed to process chat message" }, 500);
+    }
+  };
 }
 
-export { DEFAULT_SYSTEM_PROMPT, DEFAULT_MODEL };
-export type { Tool, ToolExecutionResult, ToolExecutor, ChatHandlerOptions };
+function disabledSmsDeps(
+  config: PrivacyConfig,
+): Omit<SmsEscalationDeps, "accumulator" | "onWaiting"> {
+  return {
+    sendSMS: async () => ({ success: false, error: "SMS not configured" }),
+    createPending: async () => ({ id: "disabled" }),
+    checkReply: async () => null,
+    clearReply: async () => {},
+    markTimeout: async () => {},
+    config,
+    intervalMs: 2000,
+    timeoutMs: 1000,
+  };
+}
+
+function json(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export type { ChatMessage } from "./types";
+export type { PrivacyConfig } from "./privacy/rules";
+export type { Escalation, SmsEscalationDeps } from "./agent/sms-tool";
+export type { RunAgentFn } from "./agent/run-agent";
