@@ -38,6 +38,16 @@ export interface SmsEscalationDeps {
   sleep?: (ms: number) => Promise<void>;
 }
 
+/**
+ * The integrator-facing slice of escalation deps: just the IO wiring (Twilio + Supabase).
+ * The chat handler supplies `config`, `accumulator`, `onWaiting`, and the timeouts itself.
+ */
+export type SmsIODeps = Pick<
+  SmsEscalationDeps,
+  "sendSMS" | "createPending" | "checkReply" | "clearReply" | "markTimeout"
+> &
+  Partial<Pick<SmsEscalationDeps, "isAborted" | "now" | "sleep">>;
+
 const GATE_RESULT = (sendKeyword: string) =>
   `Owner signaled ${sendKeyword}. Formulate your final response to the visitor now. NEVER reveal private conversation content.`;
 

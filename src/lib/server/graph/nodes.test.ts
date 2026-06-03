@@ -20,8 +20,13 @@ function nodes(over: Partial<Parameters<typeof createNodes>[0]> = {}) {
 }
 
 // LangGraph normalizes Command.goto to an array; unwrap to the single destination.
-function goto(cmd: { goto: unknown }): unknown {
+function goto(cmd: { goto?: unknown }): unknown {
   return Array.isArray(cmd.goto) ? cmd.goto[0] : cmd.goto;
+}
+
+// Command.update is a loose union; read it as a plain record in assertions.
+function update(cmd: { update?: unknown }): Record<string, unknown> {
+  return (cmd.update ?? {}) as Record<string, unknown>;
 }
 
 const base: ChatStateT = {
@@ -65,8 +70,8 @@ describe("gate", () => {
   it("routes back to agentTurn (with feedback) when SMS used and no SEND", async () => {
     const cmd = await nodes().gate({ ...base, hadSMSInteraction: true });
     expect(goto(cmd)).toBe("agentTurn");
-    expect(cmd.update.gateBlockCount).toBe(1);
-    expect(typeof cmd.update.feedback).toBe("string");
+    expect(update(cmd).gateBlockCount).toBe(1);
+    expect(typeof update(cmd).feedback).toBe("string");
   });
   it("routes to safeFallback after max gate blocks", async () => {
     expect(
@@ -108,8 +113,8 @@ describe("privacyReview node", () => {
       privateContexts: ["x"],
     });
     expect(goto(cmd)).toBe("agentTurn");
-    expect(cmd.update.rewriteCount).toBe(1);
-    expect(cmd.update.feedback).toContain("leak");
+    expect(update(cmd).rewriteCount).toBe(1);
+    expect(update(cmd).feedback).toContain("leak");
   });
   it("routes to safeFallback when rejected at cap", async () => {
     const pr = {

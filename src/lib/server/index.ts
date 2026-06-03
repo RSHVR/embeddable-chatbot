@@ -2,7 +2,11 @@ import { createChatGraph } from "./graph/chat-graph";
 import { createRunAgent, type RunAgentFn } from "./agent/run-agent";
 import { createJudge } from "./privacy/judge";
 import { createPrivacyReviewGraph } from "./graph/privacy-review";
-import type { Escalation, SmsEscalationDeps } from "./agent/sms-tool";
+import type {
+  Escalation,
+  SmsEscalationDeps,
+  SmsIODeps,
+} from "./agent/sms-tool";
 import type { PrivacyConfig } from "./privacy/rules";
 import type { ChatMessage } from "./types";
 
@@ -28,12 +32,12 @@ export interface ChatHandlerOptions {
   maxToolTurns?: number;
   replyCheckInterval?: number;
   replyTimeout?: number;
-  /** Build SMS escalation deps for a session (Twilio + Supabase wiring). Omit to disable SMS. */
+  /** Build SMS IO deps for a session (Twilio + Supabase wiring). Omit to disable SMS. */
   smsDepsFor?: (
     sessionId: string,
     accumulator: Escalation,
     onWaiting: () => void,
-  ) => Omit<SmsEscalationDeps, "accumulator" | "onWaiting">;
+  ) => SmsIODeps;
   onSave?: (sessionId: string, history: ChatMessage[]) => Promise<void>;
 }
 
@@ -115,7 +119,7 @@ export function createChatHandler(options: ChatHandlerOptions) {
             smsDepsFor: (accumulator) => ({
               ...(options.smsDepsFor
                 ? options.smsDepsFor(sessionId, accumulator, onWaiting)
-                : disabledSmsDeps(privacy)),
+                : disabledSmsDeps()),
               onWaiting,
               intervalMs: options.replyCheckInterval ?? 2000,
               timeoutMs: options.replyTimeout ?? 300_000,
@@ -181,18 +185,13 @@ export function createChatHandler(options: ChatHandlerOptions) {
   };
 }
 
-function disabledSmsDeps(
-  config: PrivacyConfig,
-): Omit<SmsEscalationDeps, "accumulator" | "onWaiting"> {
+function disabledSmsDeps(): SmsIODeps {
   return {
     sendSMS: async () => ({ success: false, error: "SMS not configured" }),
     createPending: async () => ({ id: "disabled" }),
     checkReply: async () => null,
     clearReply: async () => {},
     markTimeout: async () => {},
-    config,
-    intervalMs: 2000,
-    timeoutMs: 1000,
   };
 }
 
@@ -205,5 +204,9 @@ function json(body: unknown, status: number): Response {
 
 export type { ChatMessage } from "./types";
 export type { PrivacyConfig } from "./privacy/rules";
-export type { Escalation, SmsEscalationDeps } from "./agent/sms-tool";
+export type {
+  Escalation,
+  SmsEscalationDeps,
+  SmsIODeps,
+} from "./agent/sms-tool";
 export type { RunAgentFn } from "./agent/run-agent";
