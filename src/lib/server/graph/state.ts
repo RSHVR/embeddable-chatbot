@@ -8,7 +8,7 @@ const lastWins = <T>(def: () => T) => ({
 
 export const ChatState = Annotation.Root({
   sessionId: Annotation<string>(lastWins(() => "")),
-  history: Annotation<ChatMessage[]>(lastWins(() => [])),
+  history: Annotation<ChatMessage[]>(lastWins<ChatMessage[]>(() => [])),
   userMessage: Annotation<string>(lastWins(() => "")),
   draftResponse: Annotation<string>(lastWins(() => "")),
   privateContexts: Annotation<string[]>({
@@ -20,7 +20,9 @@ export const ChatState = Annotation.Root({
   smsTimedOut: Annotation<boolean>(lastWins(() => false)),
   rewriteCount: Annotation<number>(lastWins(() => 0)),
   gateBlockCount: Annotation<number>(lastWins(() => 0)),
-  feedback: Annotation<string | undefined>(lastWins(() => undefined)),
+  feedback: Annotation<string | undefined>(
+    lastWins<string | undefined>(() => undefined),
+  ),
   finalResponse: Annotation<string>(lastWins(() => "")),
 });
 
