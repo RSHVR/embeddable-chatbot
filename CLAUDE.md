@@ -51,6 +51,11 @@ Plan: `docs/superpowers/plans/2026-06-02-langgraph-agent-sdk-chatbot.md`.
   unwrap it in tests.
 - **The privacy judge is fail-closed by design**: API/parse errors → REJECT (the old handler
   failed open). Keep it that way; the requirement is "never leak".
+- **Judge output is messy; parse it robustly.** The judge LLM returns fenced JSON
+  (` ```json ... ``` `) with trailing prose. `JSON.parse` on the raw text fails →
+  fail-closed → wrongly rejects every clean response. `parseVerdict` strips fences and
+  isolates the JSON object; keep using it. Also: judge model must be current
+  (`claude-haiku-4-5-20251001`); `claude-3-5-haiku-20241022` is retired (`not_found_error`).
 - **No prettier config in the repo.** Committed style is single-quote/tabs, but an environment
   formatter may rewrite touched files to double-quote/2-space. Stage only files you actually
   changed; don't sweep formatter churn into commits.
