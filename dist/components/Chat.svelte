@@ -135,6 +135,11 @@
 							if (parsed.type === 'waiting') {
 								isWaiting = true;
 								waitingMessage = parsed.message || 'Checking with a team member...';
+							} else if (parsed.type === 'message_complete') {
+								// Current message is complete, start a new bubble
+								botMessageIndex = messages.length;
+								botMessage = '';
+								messages = [...messages, { sender: 'bot', text: '' }];
 							} else if (parsed.text) {
 								// Clear waiting state when actual text arrives
 								if (isWaiting) {

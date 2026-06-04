@@ -23,148 +23,155 @@
  * ```
  */
 export function createSMSState(options) {
-    const { supabase } = options;
-    /**
-     * Create a pending SMS record when the agent sends a message to the owner
-     */
-    async function createPendingSMS(sessionId, toolUseId, message, context) {
-        const { data, error } = await supabase
-            .from('pending_sms')
-            .insert({
-            session_id: sessionId,
-            tool_use_id: toolUseId,
-            message_to_owner: message,
-            conversation_context: context || null
-        })
-            .select()
-            .single();
-        if (error) {
-            console.error('Error creating pending SMS:', error);
-            throw new Error(`Failed to create pending SMS: ${error.message}`);
-        }
-        return data;
+  const { supabase } = options;
+  /**
+   * Create a pending SMS record when the agent sends a message to the owner
+   */
+  async function createPendingSMS(sessionId, toolUseId, message, context) {
+    const { data, error } = await supabase
+      .from("pending_sms")
+      .insert({
+        session_id: sessionId,
+        tool_use_id: toolUseId,
+        message_to_owner: message,
+        conversation_context: context || null,
+      })
+      .select()
+      .single();
+    if (error) {
+      console.error("Error creating pending SMS:", error);
+      throw new Error(`Failed to create pending SMS: ${error.message}`);
     }
-    /**
-     * Get the most recent pending SMS for a session
-     */
-    async function getPendingSMS(sessionId) {
-        const { data, error } = await supabase
-            .from('pending_sms')
-            .select('*')
-            .eq('session_id', sessionId)
-            .eq('status', 'pending')
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
-        if (error) {
-            if (error.code === 'PGRST116') {
-                // No rows found
-                return null;
-            }
-            console.error('Error getting pending SMS:', error);
-            return null;
-        }
-        return data;
+    return data;
+  }
+  /**
+   * Get the most recent pending SMS for a session
+   */
+  async function getPendingSMS(sessionId) {
+    const { data, error } = await supabase
+      .from("pending_sms")
+      .select("*")
+      .eq("session_id", sessionId)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+    if (error) {
+      if (error.code === "PGRST116") {
+        // No rows found
+        return null;
+      }
+      console.error("Error getting pending SMS:", error);
+      return null;
     }
-    /**
-     * Get the most recent pending SMS (for webhook matching)
-     */
-    async function getMostRecentPendingSMS() {
-        const { data, error } = await supabase
-            .from('pending_sms')
-            .select('*')
-            .eq('status', 'pending')
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
-        if (error) {
-            if (error.code === 'PGRST116') {
-                return null;
-            }
-            console.error('Error getting most recent pending SMS:', error);
-            return null;
-        }
-        return data;
+    return data;
+  }
+  /**
+   * Get the most recent pending SMS (for webhook matching)
+   */
+  async function getMostRecentPendingSMS() {
+    const { data, error } = await supabase
+      .from("pending_sms")
+      .select("*")
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+    if (error) {
+      if (error.code === "PGRST116") {
+        return null;
+      }
+      console.error("Error getting most recent pending SMS:", error);
+      return null;
     }
-    /**
-     * Update a pending SMS with the owner's reply
-     */
-    async function updateSMSReply(id, reply) {
-        const { data, error } = await supabase
-            .from('pending_sms')
-            .update({
-            owner_reply: reply,
-            status: 'replied',
-            replied_at: new Date().toISOString()
-        })
-            .eq('id', id)
-            .select()
-            .single();
-        if (error) {
-            console.error('Error updating SMS reply:', error);
-            throw new Error(`Failed to update SMS reply: ${error.message}`);
-        }
-        return data;
+    return data;
+  }
+  /**
+   * Update a pending SMS with the owner's reply
+   */
+  async function updateSMSReply(id, reply) {
+    const { data, error } = await supabase
+      .from("pending_sms")
+      .update({
+        owner_reply: reply,
+        status: "replied",
+        replied_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) {
+      console.error("Error updating SMS reply:", error);
+      throw new Error(`Failed to update SMS reply: ${error.message}`);
     }
-    /**
-     * Mark a pending SMS as timed out
-     */
-    async function markSMSTimeout(sessionId) {
-        const { error } = await supabase
-            .from('pending_sms')
-            .update({ status: 'timeout' })
-            .eq('session_id', sessionId)
-            .eq('status', 'pending');
-        if (error) {
-            console.error('Error marking SMS timeout:', error);
-        }
+    return data;
+  }
+  /**
+   * Mark a pending SMS as timed out
+   */
+  async function markSMSTimeout(sessionId) {
+    const { error } = await supabase
+      .from("pending_sms")
+      .update({ status: "timeout" })
+      .eq("session_id", sessionId)
+      .eq("status", "pending");
+    if (error) {
+      console.error("Error marking SMS timeout:", error);
     }
-    /**
-     * Check if a session has a replied SMS (for polling)
-     */
-    async function checkForReply(sessionId) {
-        const { data, error } = await supabase
-            .from('pending_sms')
-            .select('*')
-            .eq('session_id', sessionId)
-            .eq('status', 'replied')
-            .order('replied_at', { ascending: false })
-            .limit(1)
-            .single();
-        if (error) {
-            if (error.code === 'PGRST116') {
-                return null;
-            }
-            console.error('Error checking for reply:', error);
-            return null;
-        }
-        return data;
+  }
+  /**
+   * Check if a specific tool call has received a reply (for polling)
+   * Uses tool_use_id to ensure we only get THIS tool call's reply, not old ones
+   */
+  async function checkForReply(sessionId, toolUseId) {
+    let query = supabase
+      .from("pending_sms")
+      .select("*")
+      .eq("session_id", sessionId)
+      .eq("status", "replied");
+    // If toolUseId provided, only look for that specific tool call's reply
+    if (toolUseId) {
+      query = query.eq("tool_use_id", toolUseId);
     }
-    /**
-     * Clear the current reply so we can receive the next one (for multi-turn conversations)
-     * Sets the record back to pending state so the next SMS can be captured
-     */
-    async function clearCurrentReply(sessionId) {
-        const { error } = await supabase
-            .from('pending_sms')
-            .update({
-            owner_reply: null,
-            replied_at: null,
-            status: 'pending'
-        })
-            .eq('session_id', sessionId)
-            .eq('status', 'replied');
-        if (error) {
-            console.error('Error clearing current reply:', error);
-        }
+    const { data, error } = await query
+      .order("replied_at", { ascending: false })
+      .limit(1)
+      .single();
+    if (error) {
+      if (error.code === "PGRST116") {
+        return null;
+      }
+      console.error("Error checking for reply:", error);
+      return null;
     }
-    return {
-        createPendingSMS,
-        getPendingSMS,
-        getMostRecentPendingSMS,
-        updateSMSReply,
-        markSMSTimeout,
-        checkForReply,
-        clearCurrentReply
-    };
+    return data;
+  }
+  /**
+   * Mark a reply as processed so it won't be found again
+   * Instead of resetting to 'pending', we mark as 'processed' to avoid race conditions
+   */
+  async function clearCurrentReply(sessionId, toolUseId) {
+    let query = supabase
+      .from("pending_sms")
+      .update({ status: "processed" })
+      .eq("session_id", sessionId)
+      .eq("status", "replied");
+    // If toolUseId provided, only mark that specific record
+    if (toolUseId) {
+      query = query.eq("tool_use_id", toolUseId);
+    }
+    const { error } = await query;
+    if (error) {
+      console.error("Error marking reply as processed:", error);
+    }
+  }
+  return {
+    createPendingSMS,
+    getPendingSMS,
+    getMostRecentPendingSMS,
+    updateSMSReply,
+    markSMSTimeout,
+    checkForReply,
+    clearCurrentReply,
+  };
 }

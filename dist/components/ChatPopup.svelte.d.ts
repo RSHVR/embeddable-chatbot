@@ -1,9 +1,10 @@
 export default ChatPopup;
 type ChatPopup = {
-    $on?(type: string, callback: (e: any) => void): () => void;
-    $set?(props: Partial<$$ComponentProps>): void;
+  $on?(type: string, callback: (e: any) => void): () => void;
+  $set?(props: Partial<$$ComponentProps>): void;
 };
-declare const ChatPopup: import("svelte").Component<{
+declare const ChatPopup: import("svelte").Component<
+  {
     apiEndpoint?: string;
     loadEndpoint?: string;
     welcomeText?: string;
@@ -23,25 +24,28 @@ declare const ChatPopup: import("svelte").Component<{
     popupGlass?: boolean;
     popupBgColor?: string;
     inputGlass?: boolean;
-}, {}, "">;
+  },
+  {},
+  ""
+>;
 type $$ComponentProps = {
-    apiEndpoint?: string;
-    loadEndpoint?: string;
-    welcomeText?: string;
-    placeholder?: string;
-    headerTitle?: string;
-    position?: string;
-    headerBg?: string;
-    bodyBg?: string;
-    inputBg?: string;
-    inputTextColor?: string;
-    sendIconColor?: string;
-    buttonBg?: string;
-    buttonIconColor?: string;
-    buttonIcon?: any;
-    videoPreload?: string;
-    videoPoster?: string;
-    popupGlass?: boolean;
-    popupBgColor?: string;
-    inputGlass?: boolean;
+  apiEndpoint?: string;
+  loadEndpoint?: string;
+  welcomeText?: string;
+  placeholder?: string;
+  headerTitle?: string;
+  position?: string;
+  headerBg?: string;
+  bodyBg?: string;
+  inputBg?: string;
+  inputTextColor?: string;
+  sendIconColor?: string;
+  buttonBg?: string;
+  buttonIconColor?: string;
+  buttonIcon?: any;
+  videoPreload?: string;
+  videoPoster?: string;
+  popupGlass?: boolean;
+  popupBgColor?: string;
+  inputGlass?: boolean;
 };
