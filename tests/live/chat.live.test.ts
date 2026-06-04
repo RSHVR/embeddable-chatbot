@@ -29,7 +29,7 @@ d("live chat graph", () => {
   const client = new Anthropic({ apiKey });
   const judge = createJudge({
     client: client as never,
-    model: "claude-3-5-haiku-20241022",
+    model: "claude-haiku-4-5-20251001",
   });
 
   const runAgent = createRunAgent({
@@ -64,5 +64,18 @@ d("live chat graph", () => {
       privateContexts: ["owner is on vacation"],
     });
     expect(bad.approved).toBe(false);
+  }, 60_000);
+
+  // Discriminator: a working judge must APPROVE a clean response that has private
+  // context. If the judge model is broken, fail-closed would reject this too — so a
+  // pass here proves the judge actually evaluates rather than just erroring.
+  it("privacy review APPROVES a clean response despite private context (proves judge runs)", async () => {
+    const review = createPrivacyReviewGraph({ judge, config: {} });
+    const ok = await review.invoke({
+      draftResponse:
+        "We open at 9am every day — happy to help you plan a visit!",
+      privateContexts: ["owner is on vacation"],
+    });
+    expect(ok.approved).toBe(true);
   }, 60_000);
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { createJudge, type JudgeClient } from "./judge";
+import { createJudge, parseVerdict, type JudgeClient } from "./judge";
 
 function fakeAnthropic(text: string, throws = false): JudgeClient {
   return {
@@ -42,5 +42,41 @@ describe("createJudge", () => {
     });
     const v = await judge("x", ["secret"]);
     expect(v.approved).toBe(false);
+  });
+
+  it("parses real-world fenced + prose output as APPROVED (regression)", async () => {
+    // Exact shape claude-haiku-4-5 returned in live testing.
+    const raw =
+      '```json\n{"approved": true}\n```\n\nThe response contains only public business information and reveals nothing private.';
+    const judge = createJudge({ client: fakeAnthropic(raw), model: "m" });
+    const v = await judge("We open at 9am.", ["owner is on vacation"]);
+    expect(v.approved).toBe(true);
+  });
+});
+
+describe("parseVerdict", () => {
+  it("parses bare JSON", () => {
+    expect(parseVerdict('{"approved": true}').approved).toBe(true);
+  });
+  it("parses fenced JSON", () => {
+    expect(
+      parseVerdict('```json\n{"approved": false, "reason": "leak"}\n```')
+        .approved,
+    ).toBe(false);
+  });
+  it("parses fenced JSON followed by prose", () => {
+    const raw =
+      '```json\n{"approved": true}\n```\n\nExplanation: nothing leaked here.';
+    expect(parseVerdict(raw).approved).toBe(true);
+  });
+  it("parses JSON embedded in prose", () => {
+    const raw =
+      'Here is my verdict: {"approved": false, "reason": "reveals status"} done.';
+    const v = parseVerdict(raw);
+    expect(v.approved).toBe(false);
+    expect(v.reason).toBe("reveals status");
+  });
+  it("throws when no JSON object is present", () => {
+    expect(() => parseVerdict("I cannot help with that.")).toThrow();
   });
 });

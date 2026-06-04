@@ -19,7 +19,7 @@ Guidelines:
 - Ask clarifying questions when needed`;
 
 export const DEFAULT_MODEL = "claude-sonnet-4-5-20250929";
-export const DEFAULT_JUDGE_MODEL = "claude-3-5-haiku-20241022";
+export const DEFAULT_JUDGE_MODEL = "claude-haiku-4-5-20251001";
 
 export interface ChatHandlerOptions {
   apiKey: string;
