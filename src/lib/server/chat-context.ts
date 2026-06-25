@@ -8,4 +8,4 @@ Guidelines:
 - Ask clarifying questions when needed`;
 
 // Default model - can be changed to any Claude model
-export const MODEL = 'claude-sonnet-4-5-20250929';
+export const MODEL = "claude-sonnet-4-5-20250929";

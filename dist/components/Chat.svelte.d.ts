@@ -1,9 +1,10 @@
 export default Chat;
 type Chat = {
-    $on?(type: string, callback: (e: any) => void): () => void;
-    $set?(props: Partial<$$ComponentProps>): void;
+  $on?(type: string, callback: (e: any) => void): () => void;
+  $set?(props: Partial<$$ComponentProps>): void;
 };
-declare const Chat: import("svelte").Component<{
+declare const Chat: import("svelte").Component<
+  {
     mode?: string;
     apiEndpoint?: string;
     loadEndpoint?: string;
@@ -22,24 +23,27 @@ declare const Chat: import("svelte").Component<{
     sendIconColor?: string;
     inputBg?: string;
     inputGlass?: boolean;
-}, {}, "">;
+  },
+  {},
+  ""
+>;
 type $$ComponentProps = {
-    mode?: string;
-    apiEndpoint?: string;
-    loadEndpoint?: string;
-    welcomeText?: string;
-    placeholder?: string;
-    videoSrc?: string;
-    videoPreload?: string;
-    videoPoster?: string;
-    glassContrast?: string;
-    glassRoundness?: number;
-    glassBlur?: number;
-    glassOpacity?: number;
-    containerRoundness?: number;
-    chatBodyGlass?: boolean;
-    inputTextColor?: string;
-    sendIconColor?: string;
-    inputBg?: string;
-    inputGlass?: boolean;
+  mode?: string;
+  apiEndpoint?: string;
+  loadEndpoint?: string;
+  welcomeText?: string;
+  placeholder?: string;
+  videoSrc?: string;
+  videoPreload?: string;
+  videoPoster?: string;
+  glassContrast?: string;
+  glassRoundness?: number;
+  glassBlur?: number;
+  glassOpacity?: number;
+  containerRoundness?: number;
+  chatBodyGlass?: boolean;
+  inputTextColor?: string;
+  sendIconColor?: string;
+  inputBg?: string;
+  inputGlass?: boolean;
 };

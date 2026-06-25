@@ -61,12 +61,14 @@ The package exports `createChatHandler` for SvelteKit API routes.
 **Basic usage:**
 
 ```typescript
-import { createChatHandler } from 'embeddable-chatbot/server';
+import { createChatHandler } from "embeddable-chatbot/server";
 
 const handler = createChatHandler({
   apiKey: env.ANTHROPIC_API_KEY,
-  systemPrompt: 'You are a helpful assistant.',
-  onSave: async (sessionId, messages) => { /* save to DB */ }
+  systemPrompt: "You are a helpful assistant.",
+  onSave: async (sessionId, messages) => {
+    /* save to DB */
+  },
 });
 ```
 
@@ -74,13 +76,13 @@ const handler = createChatHandler({
 
 ### Handler Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `apiKey` | `string` | required | Anthropic API key |
-| `systemPrompt` | `string` | Generic prompt | System prompt for Claude |
-| `model` | `string` | `claude-sonnet-4-5-20250929` | Claude model |
-| `maxTokens` | `number` | `1024` | Max response tokens |
-| `onSave` | `function` | - | Callback to persist chat |
+| Option         | Type       | Default                      | Description              |
+| -------------- | ---------- | ---------------------------- | ------------------------ |
+| `apiKey`       | `string`   | required                     | Anthropic API key        |
+| `systemPrompt` | `string`   | Generic prompt               | System prompt for Claude |
+| `model`        | `string`   | `claude-sonnet-4-5-20250929` | Claude model             |
+| `maxTokens`    | `number`   | `1024`                       | Max response tokens      |
+| `onSave`       | `function` | -                            | Callback to persist chat |
 
 ## Supabase Integration
 
@@ -164,54 +166,54 @@ $$;
 
 Complete working examples in the [`examples/`](examples/) directory:
 
-| File | Description |
-|------|-------------|
-| `supabase.ts` | Supabase client + chat save/load |
-| `rag.ts` | RAG retrieval with Cohere embed + rerank |
-| `embed-site-content.ts` | Script to embed your content |
-| `api-chat-server.ts` | Chat endpoint with RAG |
-| `api-chat-load-server.ts` | Chat history endpoint |
-| `chat-page.svelte` | Example chat page |
+| File                      | Description                              |
+| ------------------------- | ---------------------------------------- |
+| `supabase.ts`             | Supabase client + chat save/load         |
+| `rag.ts`                  | RAG retrieval with Cohere embed + rerank |
+| `embed-site-content.ts`   | Script to embed your content             |
+| `api-chat-server.ts`      | Chat endpoint with RAG                   |
+| `api-chat-load-server.ts` | Chat history endpoint                    |
+| `chat-page.svelte`        | Example chat page                        |
 
 ## Components
 
 ### `<Chat>`
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `mode` | `'container' \| 'popup'` | `'container'` | Display mode |
-| `apiEndpoint` | `string` | `'/api/chat'` | Chat API URL |
-| `loadEndpoint` | `string` | `''` | History load URL |
-| `welcomeText` | `string` | `"Hi! How can I help?"` | Initial message |
-| `placeholder` | `string` | `'Type a message...'` | Input placeholder |
-| `videoSrc` | `string` | - | Video background URL |
-| `videoPoster` | `string` | `''` | Video poster image |
-| `glassContrast` | `'dark' \| 'light'` | `'light'` | Glass color scheme |
-| `glassRoundness` | `number` | `24` | Border radius (px) |
-| `glassBlur` | `number` | `8` | Backdrop blur (px) |
-| `glassOpacity` | `number` | `0.3` | Background opacity |
+| Prop             | Type                     | Default                 | Description          |
+| ---------------- | ------------------------ | ----------------------- | -------------------- |
+| `mode`           | `'container' \| 'popup'` | `'container'`           | Display mode         |
+| `apiEndpoint`    | `string`                 | `'/api/chat'`           | Chat API URL         |
+| `loadEndpoint`   | `string`                 | `''`                    | History load URL     |
+| `welcomeText`    | `string`                 | `"Hi! How can I help?"` | Initial message      |
+| `placeholder`    | `string`                 | `'Type a message...'`   | Input placeholder    |
+| `videoSrc`       | `string`                 | -                       | Video background URL |
+| `videoPoster`    | `string`                 | `''`                    | Video poster image   |
+| `glassContrast`  | `'dark' \| 'light'`      | `'light'`               | Glass color scheme   |
+| `glassRoundness` | `number`                 | `24`                    | Border radius (px)   |
+| `glassBlur`      | `number`                 | `8`                     | Backdrop blur (px)   |
+| `glassOpacity`   | `number`                 | `0.3`                   | Background opacity   |
 
 ### `<ChatPopup>`
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `apiEndpoint` | `string` | `'/api/chat'` | Chat API URL |
-| `loadEndpoint` | `string` | `''` | History load URL |
-| `welcomeText` | `string` | `"Hi! How can I help?"` | Initial message |
-| `position` | `'bottom-right' \| 'bottom-left'` | `'bottom-right'` | Button position |
-| `headerTitle` | `string` | `'Chat'` | Header text |
-| `bodyBg` | `string` | `'transparent'` | Background (color/video) |
-| `buttonBg` | `string` | `'transparent'` | Toggle button bg |
-| `buttonIconColor` | `string` | `'#ffffff'` | Button icon color |
+| Prop              | Type                              | Default                 | Description              |
+| ----------------- | --------------------------------- | ----------------------- | ------------------------ |
+| `apiEndpoint`     | `string`                          | `'/api/chat'`           | Chat API URL             |
+| `loadEndpoint`    | `string`                          | `''`                    | History load URL         |
+| `welcomeText`     | `string`                          | `"Hi! How can I help?"` | Initial message          |
+| `position`        | `'bottom-right' \| 'bottom-left'` | `'bottom-right'`        | Button position          |
+| `headerTitle`     | `string`                          | `'Chat'`                | Header text              |
+| `bodyBg`          | `string`                          | `'transparent'`         | Background (color/video) |
+| `buttonBg`        | `string`                          | `'transparent'`         | Toggle button bg         |
+| `buttonIconColor` | `string`                          | `'#ffffff'`             | Button icon color        |
 
 ### `<LiquidGlass>`
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `contrast` | `'dark' \| 'light'` | `'dark'` | Color scheme |
-| `roundness` | `number` | `32` | Border radius (px) |
-| `blur` | `number` | `20` | Backdrop blur (px) |
-| `opacity` | `number` | `0.6` | Background opacity |
+| Prop        | Type                | Default  | Description        |
+| ----------- | ------------------- | -------- | ------------------ |
+| `contrast`  | `'dark' \| 'light'` | `'dark'` | Color scheme       |
+| `roundness` | `number`            | `32`     | Border radius (px) |
+| `blur`      | `number`            | `20`     | Backdrop blur (px) |
+| `opacity`   | `number`            | `0.6`    | Background opacity |
 
 ## Environment Variables
 
@@ -228,7 +230,7 @@ Use `$env/dynamic/private` for Cloudflare Workers compatibility.
 
 ```typescript
 interface ChatMessage {
-  sender: 'user' | 'bot';
+  sender: "user" | "bot";
   text: string;
 }
 
@@ -245,11 +247,20 @@ interface ChatHandlerOptions {
 
 ```typescript
 // Components
-import { Chat, ChatPopup, ChatWidget, ChatInput, LiquidGlass } from 'embeddable-chatbot';
+import {
+  Chat,
+  ChatPopup,
+  ChatWidget,
+  ChatInput,
+  LiquidGlass,
+} from "embeddable-chatbot";
 
 // Server
-import { createChatHandler } from 'embeddable-chatbot/server';
-import type { ChatMessage, ChatHandlerOptions } from 'embeddable-chatbot/server';
+import { createChatHandler } from "embeddable-chatbot/server";
+import type {
+  ChatMessage,
+  ChatHandlerOptions,
+} from "embeddable-chatbot/server";
 ```
 
 ## Requirements

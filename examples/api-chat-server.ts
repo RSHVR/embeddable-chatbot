@@ -10,11 +10,11 @@
  * - SUPABASE_SECRET_KEY
  */
 
-import { env } from '$env/dynamic/private';
-import { createChatHandler } from 'embeddable-chatbot/server';
-import { saveChat } from '$lib/server/supabase';
-import { retrieveContext, formatContextForPrompt } from '$lib/server/rag';
-import type { RequestHandler } from './$types';
+import { env } from "$env/dynamic/private";
+import { createChatHandler } from "embeddable-chatbot/server";
+import { saveChat } from "$lib/server/supabase";
+import { retrieveContext, formatContextForPrompt } from "$lib/server/rag";
+import type { RequestHandler } from "./$types";
 
 // =============================================================================
 // CUSTOMIZE THIS: Update the system prompt for your use case
@@ -46,50 +46,53 @@ const BASE_SYSTEM_PROMPT = `You are an AI assistant for [Your Website/Company Na
 // =============================================================================
 
 export const POST: RequestHandler = async ({ request }) => {
-	// Validate API key is present
-	if (!env.ANTHROPIC_API_KEY) {
-		console.error('ANTHROPIC_API_KEY is not set');
-		return new Response(JSON.stringify({ error: 'Chat service not configured' }), {
-			status: 500,
-			headers: { 'Content-Type': 'application/json' }
-		});
-	}
+  // Validate API key is present
+  if (!env.ANTHROPIC_API_KEY) {
+    console.error("ANTHROPIC_API_KEY is not set");
+    return new Response(
+      JSON.stringify({ error: "Chat service not configured" }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }
 
-	// Clone request and parse body to get the user message for RAG
-	const clonedRequest = request.clone();
-	let body: { message?: string; sessionId?: string; history?: unknown[] };
-	try {
-		body = await clonedRequest.json();
-	} catch {
-		return new Response(JSON.stringify({ error: 'Invalid request body' }), {
-			status: 400,
-			headers: { 'Content-Type': 'application/json' }
-		});
-	}
+  // Clone request and parse body to get the user message for RAG
+  const clonedRequest = request.clone();
+  let body: { message?: string; sessionId?: string; history?: unknown[] };
+  try {
+    body = await clonedRequest.json();
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid request body" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
-	const userMessage = body.message;
+  const userMessage = body.message;
 
-	// Retrieve relevant context if we have a message and Cohere API key
-	let contextString = '';
-	if (userMessage && env.COHERE_API_KEY) {
-		try {
-			const contexts = await retrieveContext(userMessage, env.COHERE_API_KEY);
-			contextString = formatContextForPrompt(contexts);
-		} catch (error) {
-			console.error('RAG retrieval failed:', error);
-			// Continue without context - graceful degradation
-		}
-	}
+  // Retrieve relevant context if we have a message and Cohere API key
+  let contextString = "";
+  if (userMessage && env.COHERE_API_KEY) {
+    try {
+      const contexts = await retrieveContext(userMessage, env.COHERE_API_KEY);
+      contextString = formatContextForPrompt(contexts);
+    } catch (error) {
+      console.error("RAG retrieval failed:", error);
+      // Continue without context - graceful degradation
+    }
+  }
 
-	// Build dynamic system prompt with context
-	const systemPrompt = `${BASE_SYSTEM_PROMPT}
+  // Build dynamic system prompt with context
+  const systemPrompt = `${BASE_SYSTEM_PROMPT}
 ${contextString}`;
 
-	const handler = createChatHandler({
-		apiKey: env.ANTHROPIC_API_KEY,
-		systemPrompt,
-		onSave: saveChat
-	});
+  const handler = createChatHandler({
+    apiKey: env.ANTHROPIC_API_KEY,
+    systemPrompt,
+    onSave: saveChat,
+  });
 
-	return handler(request);
+  return handler(request);
 };
